@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<FrameLayout android:layout_width="fill_parent" android:layout_height="@dimen/dialog_header_height"
-  xmlns:android="http://schemas.android.com/apk/res/android">
-    <ImageView android:id="@id/header_background_image_view" android:layout_width="fill_parent" android:layout_height="fill_parent" android:scaleType="centerCrop" android:contentDescription="@null" />
-    <RelativeLayout android:id="@id/header_content_container" android:layout_width="fill_parent" android:layout_height="fill_parent" />
-    <View android:layout_gravity="bottom" android:id="@id/header_divider" android:background="@color/header_divider_color" android:layout_width="fill_parent" android:layout_height="1.0dip" />
-</FrameLayout>

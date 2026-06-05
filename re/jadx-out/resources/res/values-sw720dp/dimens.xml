@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <dimen name="action_preference_min_height">78dp</dimen>
-    <dimen name="dialog_max_height">800dp</dimen>
-    <dimen name="dialog_width">580dp</dimen>
-    <dimen name="md_dialog_max_width">496dp</dimen>
-</resources>

@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<LinearLayout android:gravity="center_horizontal" android:orientation="vertical" android:layout_width="fill_parent" android:layout_height="wrap_content"
-  xmlns:android="http://schemas.android.com/apk/res/android">
-    <TextView android:textSize="@dimen/dialog_message_text_size_normal" android:gravity="center" android:id="@android:id/message" android:layout_width="fill_parent" android:layout_height="wrap_content" />
-    <de.mrapp.android.view.CircularProgressBar android:id="@id/progress_bar" android:layout_width="@dimen/circular_progress_bar_size_normal" android:layout_height="@dimen/circular_progress_bar_size_normal" android:layout_marginTop="@dimen/dialog_progress_bar_margin" />
-</LinearLayout>

@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<LinearLayout android:gravity="center_vertical" android:orientation="horizontal" android:layout_width="wrap_content" android:layout_height="@dimen/chip_height"
-  xmlns:android="http://schemas.android.com/apk/res/android">
-    <ImageView android:id="@android:id/icon" android:visibility="gone" android:layout_width="@dimen/chip_height" android:layout_height="@dimen/chip_height" android:layout_marginRight="@dimen/chip_icon_margin" android:scaleType="fitXY" android:contentDescription="@null" android:layout_marginEnd="@dimen/chip_icon_margin" />
-    <TextView android:textSize="@dimen/chip_text_size" android:textColor="@color/chip_text_color_light" android:ellipsize="end" android:id="@android:id/text1" android:paddingLeft="@dimen/chip_horizontal_padding" android:paddingRight="@dimen/chip_horizontal_padding" android:layout_width="wrap_content" android:layout_height="wrap_content" android:singleLine="true" />
-    <ImageButton android:id="@android:id/closeButton" android:visibility="gone" android:layout_width="@dimen/chip_close_button_size" android:layout_height="@dimen/chip_close_button_size" android:layout_marginLeft="@dimen/chip_close_button_margin" android:layout_marginRight="@dimen/chip_close_button_margin" android:src="@null" android:contentDescription="@null" android:layout_marginStart="@dimen/chip_close_button_margin" android:layout_marginEnd="@dimen/chip_close_button_margin" style="?android:buttonBarButtonStyle" />
-</LinearLayout>
