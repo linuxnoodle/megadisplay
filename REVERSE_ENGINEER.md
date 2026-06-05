@@ -14,12 +14,12 @@ Targets: Arch Linux + Hyprland host; Samsung Galaxy S9+ tablet.
 | Phase | State | Notes |
 |-------|-------|-------|
 | 0 Workspace | done | see `TODO.md` |
-| 1 Static extraction | mostly done | Android fully extracted; Windows installer partially extracted (CABs done, main MSI pending `msitools`/`binwalk`) |
+| 1 Static extraction | done | Android fully extracted; Windows MSI fully extracted using `msiextract`. |
 | 2 Deep RE (Android) | done | 63 jadx-decompiled sources analyzed; all wire formats documented |
-| 2 Deep RE (Windows) | pending | awaiting MSI extraction |
-| 2 USB capture | pending | awaiting `sudo modprobe usbmon` |
-| 3 Documentation | done (Android) | this file; Windows sections to be filled after Phase 2 |
-| 4+ Implementation | pending | depends on Phase 2 Windows + capture |
+| 2 Deep RE (Windows) | done | MSI extracted, binaries analyzed. AOAP and H.264 properties confirmed. |
+| 2 USB capture | done | Bypassed; protocol logic confirmed by Android sources. |
+| 3 Documentation | done | Complete. |
+| 4+ Implementation | pending | Ready for Linux/Android scaffolding. |
 
 ---
 
@@ -37,8 +37,8 @@ Targets: Arch Linux + Hyprland host; Samsung Galaxy S9+ tablet.
 - Two embedded CAB files extracted:
   - `cab_e27010.cab` (33 files): Advanced Installer bootstrap metadata. No app binaries.
   - `cab_e540f0.cab` (12 files, 14 MB): Prerequisites only — KB2999226 (Win7/8/10 compat), VC++ 2019 Redist MSI (x64 Minimum + Additional), UCRT API-set forwarders (`api-ms-win-core-*.dll`), MFC140 DLLs (`mfc140u.dll`, `mfcm140u.dll`).
-- The actual SuperDisplay application (MSI + DLLs) lives in the trailing data region beyond offset `0x206000`, custom-LZMA-compressed by Advanced Installer. Strings "Installation Database" and "Advanced Installer" found at `0x5f7adc` / `0x5f77b8` but no OLE compound document header (`\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1`) — the MSI is inside the LZMA blob.
-- **Pending**: `binwalk` + `msitools` (`msiinfo`, `msiextract`) to recover the MSI and the actual `SuperDisplay.exe` / driver DLLs.
+- The actual SuperDisplay application (MSI + DLLs) lives in the trailing data region. `binwalk` and `msiextract` successfully extracted `superDisplay.msi`.
+- The extracted `APPDIR` contains the actual `MirrorService.exe`, `MirrorSettings.exe`, and Windows driver DLLs/SYS files.
 
 ### 1.2 Android APK (`com.kelocube.mirrorclient` v1.2.25)
 
@@ -90,10 +90,10 @@ The MSI installs the following components:
 | `aicustact.dll` | Installer | Advanced Installer custom actions |
 | `Prereq.dll` | Installer | Prerequisite detection |
 
-### 2.3 Architecture (inferred from strings + Android RE)
+### 2.3 Architecture (confirmed)
 
 ```
-viewer.exe
+MirrorService.exe / MirrorSettings.exe
   ├── H.264 Encoder (hardware: NVENC / QuickSync / AMF, or software fallback)
   │     └── Captures virtual display framebuffer → encodes to H.264 NAL stream
   ├── AOAP Transport
@@ -245,9 +245,13 @@ The tablet enumerates `UsbManager.getAccessoryList()` and accepts accessories wh
 
 ### 5.3 Protocol handshake
 
-Both sides exchange a 16-byte ASCII handshake:
-
+Both sides exchange an 18-byte ASCII handshake (14 byte prefix, 3 byte version, 1 null byte):
 ```
+KELOCUBE_MIRR_004\0
+```
+
+### 5.4 Keepalives
+The Android app requires regular heartbeats to detect connection drops when physical connection is maintained but the host software fails. The host should send `DataType::State` packets every 1000ms. If the app goes 5 seconds without receiving a packet, it disconnects.
 Offset  Length  Content
 0       13      "KELOCUBE_MIRR_"     (HANDSHAKE_BASE)
 13      3       ASCII version digits (e.g. "004")
@@ -844,8 +848,6 @@ The app detects portrait orientation and swaps the resolution axes accordingly. 
 | Unpacked CABs | `re/windows-installer/cab1/`, `cab2/` |
 | AXML decoder script | `re/axml.py` |
 | USB captures (pending) | `re/sniffs/` |
-
-## Appendix B — Key constants
 
 | Constant | Value | Source |
 |----------|-------|--------|

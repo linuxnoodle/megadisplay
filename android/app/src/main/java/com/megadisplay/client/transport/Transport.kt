@@ -1,25 +1,24 @@
 package com.megadisplay.client.transport
 
+import android.util.Log
 import com.megadisplay.client.protocol.DataType
 import com.megadisplay.client.protocol.Handshake
 import com.megadisplay.client.protocol.Protocol
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import java.nio.channels.GatheringByteChannel
-import java.nio.channels.ScatteringByteChannel
+import java.nio.channels.ReadableByteChannel
+import java.nio.channels.WritableByteChannel
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.ReentrantLock
 
 abstract class Transport(
-    private val readChannel: ScatteringByteChannel,
-    private val writeChannel: GatheringByteChannel,
+    private val readChannel: ReadableByteChannel,
+    private val writeChannel: WritableByteChannel,
 ) {
     var onReady: (() -> Unit)? = null
     var onData: ((DataType, ByteBuffer) -> Unit)? = null
     var onError: ((Throwable) -> Unit)? = null
 
-    @Volatile var hostVersion: Int = 0; private set
-    @Volatile var clientVersion: Int = 0; private set
     @Volatile var running: Boolean = false; private set
 
     private val sendLock = ReentrantLock()
@@ -29,6 +28,26 @@ abstract class Transport(
     private var sendingBuffer: ByteBuffer =
         ByteBuffer.allocate(Protocol.SEND_BUFFER_SIZE).order(ByteOrder.LITTLE_ENDIAN)
     @Volatile private var pendingSend: Boolean = false
+
+    private val readBuffer = ByteBuffer.allocateDirect(65536)
+    init {
+        readBuffer.flip()
+    }
+
+    private fun readExact(buf: ByteArray, offset: Int, length: Int) {
+        var read = 0
+        while (read < length) {
+            if (!readBuffer.hasRemaining()) {
+                readBuffer.clear()
+                val n = readChannel.read(readBuffer)
+                if (n < 0) throw java.io.EOFException("channel closed")
+                readBuffer.flip()
+            }
+            val toRead = minOf(length - read, readBuffer.remaining())
+            readBuffer.get(buf, offset + read, toRead)
+            read += toRead
+        }
+    }
 
     private val timeoutTicks = AtomicInteger(Protocol.TIMEOUT_TICKS)
 
@@ -40,6 +59,24 @@ abstract class Transport(
         running = true
         Thread({ readLoop() }, "transport-read").start()
         Thread({ sendLoop() }, "transport-send").start()
+        Thread({ timeoutLoop() }, "transport-timeout").start()
+    }
+
+    private fun timeoutLoop() {
+        while (running) {
+            try {
+                Thread.sleep(1000)
+            } catch (e: InterruptedException) {
+                break
+            }
+            if (!running) break
+            if (timeoutTicks.decrementAndGet() <= 0) {
+                Log.e("Transport", "Timeout ticks reached 0! Disconnecting.")
+                onError?.invoke(java.io.IOException("Timeout waiting for keepalives"))
+                running = false
+                break
+            }
+        }
     }
 
     fun stop() {
@@ -104,17 +141,19 @@ abstract class Transport(
 
     private fun readLoop() {
         try {
-            clientVersion = Handshake.readHandshake(readChannel)
+            Handshake.readHandshake(readChannel)
             val ourHandshake = Handshake.build(Protocol.HOST_VERSION)
-            writeChannel.write(ByteBuffer.wrap(ourHandshake))
-            hostVersion = clientVersion
+            val hsBuf = ByteBuffer.wrap(ourHandshake)
+            while (hsBuf.hasRemaining()) {
+                writeChannel.write(hsBuf)
+            }
             onReady?.invoke()
 
             val fragHeader = ByteArray(3)
 
             while (running) {
                 timeoutTicks.set(Protocol.TIMEOUT_TICKS)
-                readExact(readChannel, fragHeader, 0, 3)
+                readExact(fragHeader, 0, 3)
                 if (!running) break
 
                 val streamId = fragHeader[0].toInt()
@@ -124,16 +163,18 @@ abstract class Transport(
                 if (streamId !in 0..1) {
                     if (fragLen > 0) {
                         val skip = ByteArray(fragLen)
-                        readExact(readChannel, skip, 0, fragLen)
+                        readExact(skip, 0, fragLen)
                     }
                     continue
                 }
 
                 val fragData = ByteArray(fragLen)
-                readExact(readChannel, fragData, 0, fragLen)
+                readExact(fragData, 0, fragLen)
+
                 processFragment(streamId, fragData)
             }
         } catch (e: Exception) {
+            Log.e("Transport", "readLoop exception", e)
             if (running) onError?.invoke(e)
         } finally {
             running = false
@@ -157,7 +198,9 @@ abstract class Transport(
                     ((buf[3].toInt() and 0xFF) shl 24)
             }
 
-            if (writePos < 4 + msgLen) break
+            if (writePos < 4 + msgLen) {
+                break
+            }
 
             val payload = ByteArray(msgLen)
             System.arraycopy(buf, 4, payload, 0, msgLen)
@@ -172,20 +215,14 @@ abstract class Transport(
             val dataType = DataType.fromId(payload[0]) ?: DataType.State
             val payloadBuf = ByteBuffer.wrap(payload, 1, payload.size - 1)
                 .order(ByteOrder.LITTLE_ENDIAN)
-            onData?.invoke(dataType, payloadBuf)
+            try {
+                onData?.invoke(dataType, payloadBuf)
+            } catch (e: Exception) {
+                Log.e("Transport", "Error in onData for $dataType", e)
+            }
         }
 
         streamWritePos[streamId] = writePos
         streamMsgLen[streamId] = msgLen
-    }
-
-    companion object {
-        fun readExact(channel: ScatteringByteChannel, buf: ByteArray, offset: Int, length: Int) {
-            val nioBuf = ByteBuffer.wrap(buf, offset, length)
-            while (nioBuf.hasRemaining()) {
-                val n = channel.read(nioBuf)
-                if (n < 0) throw java.io.EOFException("channel closed")
-            }
-        }
     }
 }

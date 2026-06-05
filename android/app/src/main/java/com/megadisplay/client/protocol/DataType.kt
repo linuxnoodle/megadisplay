@@ -30,34 +30,18 @@ object Protocol {
     val SUPPORTED_HOST_VERSIONS = intArrayOf(4, 3)
     val HOST_VERSION: Int get() = SUPPORTED_HOST_VERSIONS[0]
 
-    const val READ_BUFFER_CONTROL = 100_000
     const val READ_BUFFER_VIDEO = 10_000_000
     const val SEND_BUFFER_SIZE = 10_000
 
     const val TIMEOUT_TICKS = 10
-    const val TIMEOUT_TICK_MS = 1000L
-
-    const val STREAM_CONTROL: Byte = 0
-    const val STREAM_VIDEO: Byte = 1
 
     const val PEN_FLAG_CONTACT = 0x01
     const val PEN_FLAG_HOVER = 0x02
     const val PEN_FLAG_BUTTON = 0x04
+    const val PEN_FLAG_ERASER = 0x08
 
     const val TOUCH_KEEPALIVE_MS = 50L
 
-    const val FLAG_SOFTWARE_ENCODING = 0x01
-    const val OUT_RES_COPY_SOURCE = -1
-    const val OUT_RES_SCALE_TO_SOURCE = -2
-
-    const val ERROR_DRIVER: Byte = 0
-    const val ERROR_LICENSE: Byte = 2
-    const val ERROR_TRIAL_EXPIRED: Byte = 3
     const val ERROR_WARN_BAD_RESOLUTION: Byte = 4
-    const val ERROR_GPU_DRIVER: Byte = 5
-    const val ERROR_NO_ENCODER: Byte = 6
     const val ERROR_WARN_SOFTWARE_ENCODER: Byte = 7
-
-    const val MS_DELAY_USB_CONNECT = 2000L
-    const val MS_DELAY_USB_DISCONNECT = 500L
 }

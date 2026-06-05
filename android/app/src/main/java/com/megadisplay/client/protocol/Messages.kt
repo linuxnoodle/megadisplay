@@ -24,6 +24,20 @@ data class ConfigureResponse(
     }
 }
 
+object ConfigureRequestEncoder {
+    fun encode(width: Int, height: Int): ByteArray {
+        val nameBytes = "Android Client".toByteArray(Charsets.UTF_8)
+        val buf = ByteBuffer.allocate(1 + nameBytes.size + 1 + 4 + 4 + 1).order(ByteOrder.LITTLE_ENDIAN)
+        buf.put(DataType.Configure.id)
+        buf.put(nameBytes)
+        buf.put(0)
+        buf.putInt(width)
+        buf.putInt(height)
+        buf.put(1) // tablet
+        return buf.array()
+    }
+}
+
 data class PointerMove(val x: Short, val y: Short) {
     companion object {
         fun decode(payload: ByteBuffer): PointerMove {
@@ -118,28 +132,6 @@ object KeyboardEncoder {
         buf.putInt(keyCodeIndex)
         return buf.array()
     }
-}
-
-object FrameDoneEncoder {
-    fun encode(encoderId: Int): ByteArray {
-        val buf = ByteBuffer.allocate(5).order(ByteOrder.LITTLE_ENDIAN)
-        buf.put(DataType.FrameDone.id)
-        buf.putInt(encoderId)
-        return buf.array()
-    }
-}
-
-object InputConfigEncoder {
-    fun encode(buttonFunction: Int): ByteArray {
-        val buf = ByteBuffer.allocate(5).order(ByteOrder.LITTLE_ENDIAN)
-        buf.put(DataType.InputConfig.id)
-        buf.putInt(buttonFunction)
-        return buf.array()
-    }
-}
-
-object StopEncoder {
-    fun encode(): ByteArray = ByteArray(1) { DataType.Stop.id }
 }
 
 object Normalization {

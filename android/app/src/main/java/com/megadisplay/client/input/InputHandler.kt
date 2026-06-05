@@ -3,18 +3,16 @@ package com.megadisplay.client.input
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import android.util.Log
 import android.view.MotionEvent
 import android.view.View
-import com.megadisplay.client.protocol.DataType
 import com.megadisplay.client.protocol.Normalization
 import com.megadisplay.client.protocol.PenData
 import com.megadisplay.client.protocol.Protocol
 import com.megadisplay.client.protocol.TouchEncoder
 import com.megadisplay.client.protocol.TouchPointer
 import com.megadisplay.client.protocol.PenEncoder
-import com.megadisplay.client.protocol.KeyboardEncoder
 import com.megadisplay.client.transport.Transport
-import kotlin.math.PI
 
 class InputHandler(
     private val transport: Transport,
@@ -43,28 +41,52 @@ class InputHandler(
     }
 
     override fun onTouch(v: View, event: MotionEvent): Boolean {
-        when (event.actionMasked) {
-            MotionEvent.ACTION_DOWN -> {
-                sendTouch(event, forceUp = false)
-                startKeepalive()
+        val toolType = if (event.pointerCount > 0) event.getToolType(0) else MotionEvent.TOOL_TYPE_FINGER
+
+        when (toolType) {
+            MotionEvent.TOOL_TYPE_STYLUS, MotionEvent.TOOL_TYPE_ERASER -> {
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN,
+                    MotionEvent.ACTION_MOVE -> sendPen(event, contact = true, eraser = toolType == MotionEvent.TOOL_TYPE_ERASER)
+
+                    MotionEvent.ACTION_UP,
+                    MotionEvent.ACTION_CANCEL -> sendPen(event, contact = false, eraser = toolType == MotionEvent.TOOL_TYPE_ERASER)
+
+                    MotionEvent.ACTION_POINTER_DOWN,
+                    MotionEvent.ACTION_POINTER_UP -> sendPen(event, contact = true, eraser = toolType == MotionEvent.TOOL_TYPE_ERASER)
+                }
             }
-            MotionEvent.ACTION_MOVE -> sendTouch(event, forceUp = false)
-            MotionEvent.ACTION_UP -> {
-                sendTouch(event, forceUp = true)
-                stopKeepalive()
+            else -> {
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        sendTouch(event, forceUp = false)
+                        startKeepalive()
+                    }
+                    MotionEvent.ACTION_MOVE -> sendTouch(event, forceUp = false)
+                    MotionEvent.ACTION_UP -> {
+                        sendTouch(event, forceUp = true)
+                        stopKeepalive()
+                    }
+                    MotionEvent.ACTION_CANCEL -> {
+                        sendTouch(event, forceUp = true)
+                        stopKeepalive()
+                    }
+                    MotionEvent.ACTION_POINTER_DOWN,
+                    MotionEvent.ACTION_POINTER_UP -> sendTouch(event, forceUp = false)
+                }
             }
-            MotionEvent.ACTION_CANCEL -> {
-                sendTouch(event, forceUp = true)
-                stopKeepalive()
-            }
-            MotionEvent.ACTION_POINTER_DOWN,
-            MotionEvent.ACTION_POINTER_UP -> sendTouch(event, forceUp = false)
         }
         return true
     }
 
     override fun onHover(v: View, event: MotionEvent): Boolean {
-        sendPen(event)
+        val toolType = if (event.pointerCount > 0) event.getToolType(0) else MotionEvent.TOOL_TYPE_FINGER
+        when (toolType) {
+            MotionEvent.TOOL_TYPE_STYLUS, MotionEvent.TOOL_TYPE_ERASER -> {
+                sendPen(event, contact = false, eraser = toolType == MotionEvent.TOOL_TYPE_ERASER)
+            }
+            else -> { }
+        }
         return true
     }
 
@@ -93,29 +115,28 @@ class InputHandler(
         lastTouchTime = SystemClock.elapsedRealtime()
     }
 
-    fun sendPen(event: MotionEvent) {
+    private fun sendPen(event: MotionEvent, contact: Boolean, eraser: Boolean) {
         val x = Normalization.saturateToI16(event.x / areaWidth)
         val y = Normalization.saturateToI16(event.y / areaHeight)
-        val pressure = Normalization.saturateToI16(event.pressure)
+        val pressure = if (contact) Normalization.saturateToI16(event.pressure) else 0
         val orientation = Normalization.penOrientation(event.getAxisValue(MotionEvent.AXIS_ORIENTATION))
         val tilt = Normalization.penTilt(event.getAxisValue(MotionEvent.AXIS_TILT))
 
         var flags = 0
-        when (event.actionMasked) {
-            MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> flags = flags or Protocol.PEN_FLAG_CONTACT
-            MotionEvent.ACTION_HOVER_ENTER, MotionEvent.ACTION_HOVER_MOVE -> flags = flags or Protocol.PEN_FLAG_HOVER
-            MotionEvent.ACTION_BUTTON_PRESS -> flags = flags or Protocol.PEN_FLAG_BUTTON
-        }
+        if (contact) flags = flags or Protocol.PEN_FLAG_CONTACT
+        if (!contact) flags = flags or Protocol.PEN_FLAG_HOVER
+        if (eraser) flags = flags or Protocol.PEN_FLAG_ERASER
         if (event.buttonState and MotionEvent.BUTTON_STYLUS_PRIMARY != 0) {
             flags = flags or Protocol.PEN_FLAG_BUTTON
         }
 
         val data = PenEncoder.encode(PenData(flags.toByte(), x, y, pressure, orientation, tilt))
         transport.send(data)
-    }
 
-    fun sendKeyboard(pressed: Boolean, keyCodeIndex: Int) {
-        transport.send(KeyboardEncoder.encode(pressed, keyCodeIndex))
+        if (DEBUG) {
+            Log.d(TAG, "pen: ${if (contact) "CONTACT" else "HOVER"} ${if (eraser) "ERASER" else "PEN"} " +
+                "x=$x y=$y p=$pressure orient=$orientation tilt=$tilt flags=$flags")
+        }
     }
 
     private fun startKeepalive() {
@@ -125,5 +146,10 @@ class InputHandler(
     private fun stopKeepalive() {
         handler.removeCallbacks(touchKeepalive)
         lastTouchData = null
+    }
+
+    companion object {
+        private const val TAG = "InputHandler"
+        private const val DEBUG = true
     }
 }

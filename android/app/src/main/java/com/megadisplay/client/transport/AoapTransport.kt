@@ -4,13 +4,13 @@ import android.os.ParcelFileDescriptor
 import android.util.Log
 import java.io.FileInputStream
 import java.io.FileOutputStream
-import java.nio.channels.FileChannel
+import java.nio.channels.Channels
 
 class AoapTransport private constructor(
     pfd: ParcelFileDescriptor,
 ) : Transport(
-    FileInputStream(pfd.fileDescriptor).channel,
-    FileOutputStream(pfd.fileDescriptor).channel,
+    Channels.newChannel(FileInputStream(pfd.fileDescriptor)),
+    Channels.newChannel(FileOutputStream(pfd.fileDescriptor)),
 ) {
     private val pfd: ParcelFileDescriptor = pfd
 

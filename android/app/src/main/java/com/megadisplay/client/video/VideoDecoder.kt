@@ -18,6 +18,7 @@ class VideoDecoder {
     private val availableBuffers = ArrayDeque<Int>()
     @Volatile private var running = false
     @Volatile private var acceptBuffers = false
+    @Volatile private var paused = false
 
     var onFrame: (() -> Unit)? = null
     var onFormatChanged: ((Int, Int) -> Unit)? = null
@@ -66,7 +67,7 @@ class VideoDecoder {
 
         c.setCallback(object : MediaCodec.Callback() {
             override fun onInputBufferAvailable(codec: MediaCodec, index: Int) {
-                if (!acceptBuffers) return
+                if (!acceptBuffers || paused) return
                 bufferLock.lock()
                 try {
                     availableBuffers.add(index)
@@ -81,9 +82,16 @@ class VideoDecoder {
                 index: Int,
                 info: MediaCodec.BufferInfo,
             ) {
-                if (!acceptBuffers) return
-                codec.releaseOutputBuffer(index, System.nanoTime())
-                onFrame?.invoke()
+                // Always release the output buffer to prevent decoder stall.
+                // When paused, drop the frame (don't render to Surface).
+                try {
+                    codec.releaseOutputBuffer(index, !paused)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Error releasing output buffer", e)
+                }
+                if (!paused && acceptBuffers) {
+                    onFrame?.invoke()
+                }
             }
 
             override fun onOutputFormatChanged(codec: MediaCodec, format: MediaFormat) {
@@ -102,10 +110,11 @@ class VideoDecoder {
         c.start()
         running = true
         acceptBuffers = true
+        paused = false
     }
 
     fun processInput(nalData: ByteArray) {
-        if (!running) return
+        if (!running || paused) return
 
         val c = codec ?: return
         val index = waitForBuffer()
@@ -117,11 +126,19 @@ class VideoDecoder {
         c.queueInputBuffer(index, 0, nalData.size, 0, 0)
     }
 
+    /**
+     * Wait for an input buffer with a 50ms timeout.
+     * Returns -1 if no buffer available (frame should be dropped).
+     * This prevents blocking the transport read thread.
+     */
     private fun waitForBuffer(): Int {
         bufferLock.lock()
         try {
-            while (acceptBuffers && availableBuffers.isEmpty()) {
-                bufferCondition.await()
+            val deadlineNanos = System.nanoTime() + 50_000_000L
+            while (acceptBuffers && !paused && availableBuffers.isEmpty()) {
+                val remaining = deadlineNanos - System.nanoTime()
+                if (remaining <= 0) return -1
+                bufferCondition.awaitNanos(remaining)
             }
             return availableBuffers.removeFirstOrNull() ?: -1
         } catch (e: InterruptedException) {
@@ -131,9 +148,34 @@ class VideoDecoder {
         }
     }
 
+    /**
+     * Pause decoding — drops all incoming frames without blocking.
+     * Output buffers are still released to prevent decoder stall.
+     */
+    fun pause() {
+        Log.i(TAG, "Pausing decoder")
+        paused = true
+        bufferLock.lock()
+        try {
+            availableBuffers.clear()
+            bufferCondition.signalAll()
+        } finally {
+            bufferLock.unlock()
+        }
+    }
+
+    /**
+     * Resume decoding after pause.
+     */
+    fun resume() {
+        Log.i(TAG, "Resuming decoder")
+        paused = false
+    }
+
     fun stop() {
         running = false
         acceptBuffers = false
+        paused = true
         bufferLock.lock()
         try {
             bufferCondition.signalAll()

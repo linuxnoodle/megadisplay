@@ -2,6 +2,7 @@ package com.megadisplay.client.protocol
 
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.nio.channels.ReadableByteChannel
 import java.nio.charset.StandardCharsets
 
 object Handshake {
@@ -20,7 +21,10 @@ object Handshake {
         if (first4 == "MIRR") throw HandshakeException(HandshakeError.OLD_HOST)
 
         val base = String(data, 0, Protocol.HANDSHAKE_BASE.length, StandardCharsets.US_ASCII)
-        if (base != Protocol.HANDSHAKE_BASE) throw HandshakeException(HandshakeError.WRONG_PROTOCOL)
+        if (base != Protocol.HANDSHAKE_BASE) {
+            android.util.Log.e("Handshake", "WRONG_PROTOCOL: expected '${Protocol.HANDSHAKE_BASE}', got '${base}', full: ${data.contentToString()}")
+            throw HandshakeException(HandshakeError.WRONG_PROTOCOL)
+        }
 
         val versionStr = String(
             data,
@@ -44,31 +48,20 @@ object Handshake {
         return version
     }
 
-    fun readHandshake(channel: java.nio.channels.ScatteringByteChannel): Int {
-        val buf = ByteBuffer.allocate(18)
-
-        buf.limit(4)
-        while (buf.position() < 4) {
+    fun readHandshake(channel: ReadableByteChannel): Int {
+        val buf = ByteBuffer.allocate(16384)
+        var totalRead = 0
+        while (totalRead < 18) {
             val n = channel.read(buf)
             if (n < 0) throw java.io.EOFException("channel closed during handshake")
+            totalRead += n
         }
+        
         buf.flip()
-        val first4 = ByteArray(4)
-        buf.get(first4)
-        if (String(first4, StandardCharsets.US_ASCII) == "MIRR") {
-            throw HandshakeException(HandshakeError.OLD_HOST)
-        }
-
-        buf.clear()
-        buf.put(first4)
-        buf.limit(18)
-        while (buf.position() < 18) {
-            val n = channel.read(buf)
-            if (n < 0) throw java.io.EOFException("channel closed during handshake")
-        }
-        buf.flip()
-
-        return parse(ByteArray(18).also { buf.get(it) })
+        val data = ByteArray(18)
+        buf.get(data)
+        
+        return parse(data)
     }
 }
 

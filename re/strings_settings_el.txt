@@ -1,0 +1,84 @@
+Q(<6
+HKEY_LOCAL_MACHINE\HARDWARE\DESCRIPTION\System\BIOS
+SystemProductName
+SOFTWARE\KeloCube\
+MainWindow.xaml
+SuperDisplay
+/MirrorSettings;component/advancedsettingsdialog.xaml
+DisableAOAP
+DisableADB
+ConnectHotspot
+/MirrorSettings;component/connectwifidialog.xaml
+WifiClient
+{0}_{1}
+/MirrorSettings;component/errorreportdialog.xaml
+Generating the error report may take up to 30 seconds. Please do not force quit the application while the report is being generated.
+/t "
+\dxdiag.log"
+dxdiag
+Error report by 
+SOFTWARE\Microsoft\Cryptography
+MachineGuid
+User report
+*.log
+INF\setupapi.dev.log
+Thanks! We will get back to you soon.
+superdisplay.png
+Windows Driver v
+/MirrorSettings;component/mainwindow.xaml
+Unable to enable or disable the Wintab driver. Please close all drawing applications or try restarting your PC. See superdisplay.app/help#wintab-install-error for more info.
+Starting...
+Please wait...
+Ready
+Disable driver
+Disabled
+Enable driver
+Not installed
+Please reinstall the driver.
+Driver status: 
+Wintab32.dll
+drivers\driver_installer.exe
+wtdisable
+wtenable
+drivers
+MirrorSettings.Properties.Resources
+https://5cf60100fc334b3bac984f96d9f6538e@o265553.ingest.sentry.io/1469104
+release
+updater.exe
+NOTICE.txt
+advancedsettingsdialog.baml
+connectwifidialog.baml
+errorreportdialog.baml
+mainwindow.baml
+superdisplay.ico
+MSBAML
+MSBAML
+MSBAML
+MSBAML
+VS_VERSION_INFO
+VarFileInfo
+Translation
+StringFileInfo
+000004b0
+Comments
+CompanyName
+Software by KeloCube
+FileDescription
+SuperDisplay
+FileVersion
+1.1.10
+InternalName
+MirrorSettings.exe
+LegalCopyright
+Copyright 
+ Software by KeloCube 2020
+LegalTrademarks
+OriginalFilename
+MirrorSettings.exe
+ProductName
+SuperDisplay
+ProductVersion
+1.1.10
+Assembly Version
+1.1.10.0
+SuperDispla

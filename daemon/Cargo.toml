@@ -1,0 +1,37 @@
+[package]
+name = "megadisplay-daemon"
+description = "MegaDisplay daemon — USB display driver for Android tablets"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "megadisplayd"
+path = "src/main.rs"
+
+[dependencies]
+megadisplay-protocol.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+nusb = "0.2"
+clap = { version = "4", features = ["derive"] }
+toml = "0.8"
+openh264 = { version = "0.9", optional = true }
+wayland-client = { version = "0.31", optional = true }
+wayland-protocols-wlr = { version = "0.3", features = ["client"], optional = true }
+libc = { version = "0.2", optional = true }
+evdev = { version = "0.13", optional = true }
+lz4_flex = "0.11"
+
+[features]
+default = ["video-encode", "wayland", "input-inject"]
+video-encode = ["dep:openh264"]
+wayland = ["dep:wayland-client", "dep:wayland-protocols-wlr", "dep:libc"]
+input-inject = ["dep:evdev", "dep:libc"]
+
+[[test]]
+name = "uinput_test"
+path = "../../tmp/test_uinput.rs"
