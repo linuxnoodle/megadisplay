@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout android:layout_width="?icdIconSize" android:layout_height="?icdIconSize"
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <com.maltaisn.icondialog.IconImageView android:id="@id/icd_imv_icon" android:layout_width="fill_parent" android:layout_height="fill_parent" style="?icdIconStyle" />
+    <View android:id="@id/icd_icon_foreground" android:layout_width="fill_parent" android:layout_height="fill_parent" style="?icdIconForegroundStyle" />
+</FrameLayout>

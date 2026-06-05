@@ -1,0 +1,13 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<history>
+   <processor signature="gcc -shared">
+      <target file="liblz4-java.so" lastModified="1915878f059">
+         <source file="..\..\..\..\..\..\objects\net_jpountz_lz4_LZ4JNI.o" lastModified="1915878dd1e"/>
+         <source file="..\..\..\..\..\..\objects\xxhash.o" lastModified="1915878ded8"/>
+         <source file="..\..\..\..\..\..\objects\lz4.o" lastModified="1915878e637"/>
+         <source file="..\..\..\..\..\..\objects\lz4hc.o" lastModified="1915878ed76"/>
+         <source file="..\..\..\..\..\..\objects\net_jpountz_xxhash_XXHashJNI.o" lastModified="1915878ee4e"/>
+      </target>
+   </processor>
+</history>
+

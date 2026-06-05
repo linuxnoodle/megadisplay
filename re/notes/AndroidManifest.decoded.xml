@@ -1,0 +1,128 @@
+<manifest versionCode=70 versionName='1.2.25' compileSdkVersion=35 compileSdkVersionCodename='15' requiredSplitTypes='base__density' splitTypes='' package='com.kelocube.mirrorclient' platformBuildVersionCode=35 platformBuildVersionName=15>
+<uses-sdk minSdkVersion=21 targetSdkVersion=35>
+</uses-sdk>
+<uses-permission name='android.permission.ACCESS_NETWORK_STATE'>
+</uses-permission>
+<uses-permission name='android.permission.ACCESS_WIFI_STATE'>
+</uses-permission>
+<uses-permission name='android.permission.INTERNET'>
+</uses-permission>
+<uses-permission name='android.permission.RECORD_AUDIO'>
+</uses-permission>
+<uses-permission name='android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION'>
+</uses-permission>
+<uses-permission name='com.android.vending.CHECK_LICENSE'>
+</uses-permission>
+<uses-permission name='com.samsung.android.service.aircommand.permission.ACCESS_AIRCOMMAND'>
+</uses-permission>
+<uses-feature name='android.hardware.usb.accessory' required=False>
+</uses-feature>
+<uses-feature glEsVersion='0x00020000' required=True>
+</uses-feature>
+<uses-feature name='android.hardware.microphone' required=False>
+</uses-feature>
+<uses-permission name='com.android.vending.BILLING'>
+</uses-permission>
+<queries>
+<intent>
+<action name='com.android.vending.billing.InAppBillingService.BIND'>
+</action>
+</intent>
+</queries>
+<permission name='com.kelocube.mirrorclient.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION' protectionLevel='0x00000002'>
+</permission>
+<uses-permission name='com.kelocube.mirrorclient.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'>
+</uses-permission>
+<application theme='@7f13000e' label='@7f120031' icon='@7f0f0000' name='com.kelocube.mirrorclient.App' allowBackup=True supportsRtl=True extractNativeLibs=True appComponentFactory='androidx.core.app.CoreComponentFactory'>
+<uses-library name='com.android.future.usb.accessory' required=False>
+</uses-library>
+<service name='com.kelocube.mirrorclient.FgService' exported=False foregroundServiceType='0x00000020'>
+</service>
+<receiver name='com.kelocube.mirrorclient.FgServiceReceiver' exported=False>
+</receiver>
+<activity theme='@7f13000f' label='@7f120031' name='com.kelocube.mirrorclient.ui.MainActivity' exported=True launchMode=2 hardwareAccelerated=True>
+<intent-filter>
+<action name='android.intent.action.MAIN'>
+</action>
+<category name='android.intent.category.LAUNCHER'>
+</category>
+</intent-filter>
+</activity>
+<activity name='com.kelocube.mirrorclient.IntentReceiverActivity' exported=True>
+<intent-filter>
+<action name='android.hardware.usb.action.USB_ACCESSORY_ATTACHED'>
+</action>
+</intent-filter>
+<meta-data name='android.hardware.usb.action.USB_ACCESSORY_ATTACHED' resource='@7f150006'>
+</meta-data>
+</activity>
+<activity theme='@7f13000f' name='com.kelocube.mirrorclient.MirrorActivity' exported=False launchMode=1 configChanges='0x000004f0' resizeableActivity=False>
+</activity>
+<activity theme='@7f13000e' label='@7f120229' name='com.kelocube.mirrorclient.ui.SettingsActivity' exported=False>
+</activity>
+<activity theme='@7f130139' label='@7f12001f' name='com.kelocube.mirrorclient.ui.MyLibsActivity' exported=False>
+</activity>
+<activity theme='@7f13000e' label='@7f120095' name='com.kelocube.mirrorclient.ui.EditActionMenuActivity' exported=False parentActivityName='com.kelocube.mirrorclient.ui.SettingsActivity'>
+</activity>
+<activity theme='@7f13000e' label='@7f120052' name='com.kelocube.mirrorclient.ui.CalibrateStylusActivity' exported=False parentActivityName='com.kelocube.mirrorclient.ui.SettingsActivity'>
+</activity>
+<meta-data name='preloaded_fonts' resource='@7f030015'>
+</meta-data>
+<activity name='com.mikepenz.aboutlibraries.ui.LibsActivity'>
+</activity>
+<meta-data name='com.google.android.play.billingclient.version' value='7.0.0'>
+</meta-data>
+<activity theme='@01030010' name='com.android.billingclient.api.ProxyBillingActivity' exported=False configChanges='0x000005b0'>
+</activity>
+<activity theme='@01030010' name='com.android.billingclient.api.ProxyBillingActivityV2' exported=False configChanges='0x000005b0'>
+</activity>
+<activity theme='@01030010' name='com.google.android.gms.common.api.GoogleApiActivity' exported=False>
+</activity>
+<meta-data name='com.google.android.gms.version' value='@7f0b000f'>
+</meta-data>
+<provider name='androidx.startup.InitializationProvider' exported=False authorities='com.kelocube.mirrorclient.androidx-startup'>
+<meta-data name='androidx.emoji2.text.EmojiCompatInitializer' value='androidx.startup'>
+</meta-data>
+<meta-data name='androidx.lifecycle.ProcessLifecycleInitializer' value='androidx.startup'>
+</meta-data>
+<meta-data name='androidx.profileinstaller.ProfileInstallerInitializer' value='androidx.startup'>
+</meta-data>
+</provider>
+<receiver name='androidx.profileinstaller.ProfileInstallReceiver' permission='android.permission.DUMP' enabled=True exported=True directBootAware=False>
+<intent-filter>
+<action name='androidx.profileinstaller.action.INSTALL_PROFILE'>
+</action>
+</intent-filter>
+<intent-filter>
+<action name='androidx.profileinstaller.action.SKIP_FILE'>
+</action>
+</intent-filter>
+<intent-filter>
+<action name='androidx.profileinstaller.action.SAVE_PROFILE'>
+</action>
+</intent-filter>
+<intent-filter>
+<action name='androidx.profileinstaller.action.BENCHMARK_OPERATION'>
+</action>
+</intent-filter>
+</receiver>
+<service name='com.google.android.datatransport.runtime.backends.TransportBackendDiscovery' exported=False>
+<meta-data name='backend:com.google.android.datatransport.cct.CctBackendFactory' value='cct'>
+</meta-data>
+</service>
+<service name='com.google.android.datatransport.runtime.scheduling.jobscheduling.JobInfoSchedulerService' permission='android.permission.BIND_JOB_SERVICE' exported=False>
+</service>
+<receiver name='com.google.android.datatransport.runtime.scheduling.jobscheduling.AlarmManagerSchedulerBroadcastReceiver' exported=False>
+</receiver>
+<meta-data name='com.android.vending.splits.required' value=True>
+</meta-data>
+<meta-data name='com.android.stamp.source' value='https://play.google.com/store'>
+</meta-data>
+<meta-data name='com.android.stamp.type' value='STAMP_TYPE_DISTRIBUTION_APK'>
+</meta-data>
+<meta-data name='com.android.vending.splits' resource='@7f150017'>
+</meta-data>
+<meta-data name='com.android.vending.derived.apk.id' value=3>
+</meta-data>
+</application>
+</manifest>

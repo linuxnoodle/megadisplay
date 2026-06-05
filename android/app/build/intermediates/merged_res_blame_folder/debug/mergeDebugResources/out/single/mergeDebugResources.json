@@ -1,0 +1,18 @@
+[
+    {
+        "merged": "com.megadisplay.client.app-debug-26:/mipmap-anydpi-v26_ic_launcher.xml.flat",
+        "source": "com.megadisplay.client.app-main-28:/mipmap-anydpi-v26/ic_launcher.xml"
+    },
+    {
+        "merged": "com.megadisplay.client.app-debug-26:/drawable_ic_launcher_foreground.xml.flat",
+        "source": "com.megadisplay.client.app-main-28:/drawable/ic_launcher_foreground.xml"
+    },
+    {
+        "merged": "/home/qed/.gradle/daemon/8.11.1/com.megadisplay.client.app-debug-26:/xml_accessory_filter.xml.flat",
+        "source": "/home/qed/.gradle/daemon/8.11.1/com.megadisplay.client.app-main-28:/xml/accessory_filter.xml"
+    },
+    {
+        "merged": "com.megadisplay.client.app-debug-26:/mipmap-anydpi-v26_ic_launcher_round.xml.flat",
+        "source": "com.megadisplay.client.app-main-28:/mipmap-anydpi-v26/ic_launcher_round.xml"
+    }
+]

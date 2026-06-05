@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.appcompat.widget.LinearLayoutCompat android:orientation="vertical" android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_margin="8.0dip"
+  xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
+    <ImageButton android:layout_gravity="right" android:id="@id/imageButton" android:background="@android:color/transparent" android:layout_width="wrap_content" android:layout_height="wrap_content" android:tint="@color/colorOnBackground" app:srcCompat="@drawable/ic_close_black_32dp" />
+    <TextView android:textSize="32.0sp" android:textColor="@color/colorOnPrimary" android:layout_gravity="center_horizontal" android:id="@id/textView" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="16.0dip" android:layout_marginBottom="16.0dip" android:text="SuperDisplay PRO" />
+    <TextView android:textColor="@color/colorOnBackground" android:layout_gravity="center_horizontal" android:id="@id/textView3" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/offer_features" />
+    <TextView android:textSize="20.0sp" android:textColor="@color/colorOnBackground" android:layout_gravity="center_horizontal" android:id="@id/textView4" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="30% off for a limited time!" />
+    <Button android:textColor="@color/colorBuy" android:layout_gravity="center_horizontal" android:id="@id/button_purchase2" android:visibility="visible" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="16.0dip" android:layout_marginBottom="16.0dip" android:text="@string/main_purchase" app:icon="@drawable/ic_shop_black_24dp" app:iconTint="@color/colorBuy" style="@style/BuyButton" />
+</androidx.appcompat.widget.LinearLayoutCompat>

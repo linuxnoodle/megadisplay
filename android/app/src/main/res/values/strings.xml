@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MegaDisplay</string>
+    <string name="mirror_channel_name">Display Connection</string>
+    <string name="mirror_channel_desc">Active display mirror session</string>
+    <string name="mirror_notification_title">MegaDisplay Active</string>
+    <string name="mirror_notification_text">Connected to host</string>
+    <string name="status_disconnected">Disconnected</string>
+    <string name="status_connecting">Connecting…</string>
+    <string name="status_connected">Connected</string>
+    <string name="status_error">Error: %s</string>
+</resources>

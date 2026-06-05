@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout android:layout_width="fill_parent" android:layout_height="fill_parent"
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <de.mrapp.android.util.view.SquareImageView android:id="@id/color_view" android:layout_width="fill_parent" android:layout_height="fill_parent" android:scaleType="centerInside" android:contentDescription="@null" />
+    <View android:id="@id/selection_view" android:background="@drawable/color_palette_selector" android:layout_width="fill_parent" android:layout_height="fill_parent" />
+</FrameLayout>

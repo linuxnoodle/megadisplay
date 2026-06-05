@@ -1,0 +1,21 @@
+.class public Lcom/greenbulb/sonarpen/SonarPenReadings;
+.super Ljava/lang/Object;
+.source ""
+
+
+# instance fields
+.field public currentValue:F
+
+.field public maxValue:F
+
+.field public minValue:F
+
+
+# direct methods
+.method public constructor <init>()V
+    .locals 0
+
+    invoke-direct {p0}, Ljava/lang/Object;-><init>()V
+
+    return-void
+.end method

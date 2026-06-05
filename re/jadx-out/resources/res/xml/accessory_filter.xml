@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <usb-accessory
+        manufacturer="Software by KeloCube"
+        model="superDisplay"
+        version="1.1"/>
+    <usb-accessory
+        manufacturer="Software by KeloCube"
+        model="SuperDisplay"
+        version="1.1"/>
+</resources>

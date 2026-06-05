@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <de.mrapp.android.dialog.view.Divider
+        android:id="@+id/list_divider"
+        android:background="@color/divider_color_light"
+        android:visibility="invisible"
+        android:layout_width="match_parent"
+        android:layout_height="1dp"/>
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@android:id/list"
+        android:visibility="gone"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+</LinearLayout>
