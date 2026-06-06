@@ -1,0 +1,16 @@
+[Unit]
+Description=MegaDisplay Daemon — USB display for Android tablets
+After=graphical.target
+
+[Service]
+Type=simple
+User=%i
+ExecStart=/usr/bin/env megadisplayd
+Restart=on-failure
+RestartSec=3
+Environment=RUST_LOG=info
+Environment=WAYLAND_DISPLAY=wayland-1
+Environment=XDG_RUNTIME_DIR=/run/user/%U
+
+[Install]
+WantedBy=graphical.target

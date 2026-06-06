@@ -24,18 +24,22 @@ The daemon injects touch and stylus events from the tablet back into the Linux h
 
 ### Installation and Usage
 
-To install MegaDisplay, you can download the latest pre-compiled binaries and signed APK from the [GitHub Releases](#) page. If you are on Arch Linux, a `PKGBUILD` is available to build and install the daemon natively using `makepkg`.
-
-Alternatively, to build everything from source, first install the provided APK on your tablet. Then, compile and install the host binaries.
+To install MegaDisplay, you can download the latest pre-compiled binaries and signed APK from the [GitHub Releases](#) page. If you are on Arch Linux, a `PKGBUILD` is available to build and install the daemon natively using `makepkg`:
 
 ```bash
-make install
+makepkg -si
 ```
 
-Once installed, enable and start the background daemon.
+Alternatively, to build everything from source, first install the provided APK on your tablet. Then, compile and install the host binaries. This will also install udev rules for USB and uinput access.
 
 ```bash
-systemctl --user enable --now megadisplayd
+sudo make install
+```
+
+Once installed, enable and start the background daemon as a system service. You must pass your username to the template so it can capture your specific Wayland session.
+
+```bash
+sudo systemctl enable --now megadisplayd@$USER
 ```
 
 Plug the tablet into your computer using a USB cable and open the MegaDisplay app. The daemon will automatically detect the tablet and start streaming. You can configure settings like the hardware encoder, bitrate, and refresh rate by launching the control panel from your terminal.

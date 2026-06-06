@@ -1,0 +1,9 @@
+# Allow access to uinput for touch/pen injection
+KERNEL=="uinput", MODE="0660", GROUP="input", OPTIONS+="static_node=uinput"
+
+# Android USB accessories
+SUBSYSTEM=="usb", ATTR{idVendor}=="18d1", ATTR{idProduct}=="2d00", MODE="0666"
+SUBSYSTEM=="usb", ATTR{idVendor}=="18d1", ATTR{idProduct}=="2d01", MODE="0666"
+
+# Samsung devices in generic modes
+SUBSYSTEM=="usb", ATTR{idVendor}=="04e8", MODE="0666"
