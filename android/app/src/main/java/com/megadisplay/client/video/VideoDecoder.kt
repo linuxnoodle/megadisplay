@@ -6,6 +6,7 @@ import android.media.MediaFormat
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.Trace
 import android.util.Log
 import android.view.Surface
 import java.util.concurrent.locks.ReentrantLock
@@ -84,6 +85,7 @@ class VideoDecoder {
             ) {
                 // Always release the output buffer to prevent decoder stall.
                 // When paused, drop the frame (don't render to Surface).
+                Trace.beginSection("MediaCodec Dequeue")
                 try {
                     codec.releaseOutputBuffer(index, !paused)
                 } catch (e: Exception) {
@@ -92,6 +94,7 @@ class VideoDecoder {
                 if (!paused && acceptBuffers) {
                     onFrame?.invoke()
                 }
+                Trace.endSection()
             }
 
             override fun onOutputFormatChanged(codec: MediaCodec, format: MediaFormat) {
@@ -116,14 +119,19 @@ class VideoDecoder {
     fun processInput(nalData: ByteArray) {
         if (!running || paused) return
 
-        val c = codec ?: return
+        Trace.beginSection("MediaCodec Enqueue Wait")
+        val c = codec ?: run { Trace.endSection(); return }
         val index = waitForBuffer()
+        Trace.endSection()
+        
         if (index < 0) return
 
-        val buf = c.getInputBuffer(index) ?: return
+        Trace.beginSection("MediaCodec Enqueue Data")
+        val buf = c.getInputBuffer(index) ?: run { Trace.endSection(); return }
         buf.clear()
         buf.put(nalData)
         c.queueInputBuffer(index, 0, nalData.size, 0, 0)
+        Trace.endSection()
     }
 
     /**

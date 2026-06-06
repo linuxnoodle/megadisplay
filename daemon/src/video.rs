@@ -152,6 +152,7 @@ impl VideoEncoder {
     }
 
     #[cfg(feature = "video-encode")]
+    #[tracing::instrument(skip_all)]
     pub fn encode_bgra(&mut self, bgra_data: &[u8], stride: u32) -> Result<Vec<u8>> {
         let encoder = self.encoder.as_mut().context("encoder not started")?;
         let yuv = self.fast_yuv.as_mut().context("YUV buffer not allocated")?;
@@ -213,6 +214,7 @@ impl VideoEncoder {
 /// Y uses SSE4.1 SIMD (4 pixels at a time). UV uses scalar 2×2 averaged chroma.
 /// Limited range: Y 16-235, U/V 16-240.
 #[inline]
+#[tracing::instrument(skip_all)]
 fn bgra_to_yuv420_fast(
     bgra: &[u8],
     src_stride: usize,
@@ -225,45 +227,50 @@ fn bgra_to_yuv420_fast(
     let half_w = width / 2;
     let half_h = height / 2;
 
-    #[cfg(target_arch = "x86_64")]
-    {
-        if std::is_x86_feature_detected!("sse4.1") {
-            unsafe { y_plane_sse41(bgra, src_stride, width, height, y_plane); }
-        } else {
-            y_plane_scalar(bgra, src_stride, width, height, y_plane);
+    rayon::join(
+        || {
+            #[cfg(target_arch = "x86_64")]
+            {
+                if std::is_x86_feature_detected!("sse4.1") {
+                    unsafe { y_plane_sse41(bgra, src_stride, width, height, y_plane); }
+                } else {
+                    y_plane_scalar(bgra, src_stride, width, height, y_plane);
+                }
+            }
+            #[cfg(not(target_arch = "x86_64"))]
+            {
+                y_plane_scalar(bgra, src_stride, width, height, y_plane);
+            }
+        },
+        || {
+            use rayon::prelude::*;
+            // --- U/V planes: 2×2 averaged chroma ---
+            u_plane.par_chunks_mut(half_w).zip(v_plane.par_chunks_mut(half_w)).enumerate().for_each(|(by, (u_row, v_row))| {
+                let row0 = by * 2;
+                let row1 = row0 + 1;
+                let src0 = row0 * src_stride;
+                let src1 = row1 * src_stride;
+
+                for bx in 0..half_w {
+                    let x0 = bx * 2;
+                    let i00 = src0 + x0 * 4;
+                    let i01 = i00 + 4;
+                    let i10 = src1 + x0 * 4;
+                    let i11 = i10 + 4;
+
+                    let b_avg = (u32::from(bgra[i00]) + u32::from(bgra[i01]) + u32::from(bgra[i10]) + u32::from(bgra[i11])) >> 2;
+                    let g_avg = (u32::from(bgra[i00 + 1]) + u32::from(bgra[i01 + 1]) + u32::from(bgra[i10 + 1]) + u32::from(bgra[i11 + 1])) >> 2;
+                    let r_avg = (u32::from(bgra[i00 + 2]) + u32::from(bgra[i01 + 2]) + u32::from(bgra[i10 + 2]) + u32::from(bgra[i11 + 2])) >> 2;
+
+                    let u_val = (-26i32 * r_avg as i32 - 87 * g_avg as i32 + 112 * b_avg as i32 + 32768) >> 8;
+                    let v_val = (112 * r_avg as i32 - 102 * g_avg as i32 - 10 * b_avg as i32 + 32768) >> 8;
+
+                    u_row[bx] = u_val.clamp(16, 240) as u8;
+                    v_row[bx] = v_val.clamp(16, 240) as u8;
+                }
+            });
         }
-    }
-    #[cfg(not(target_arch = "x86_64"))]
-    {
-        y_plane_scalar(bgra, src_stride, width, height, y_plane);
-    }
-
-    // --- U/V planes: 2×2 averaged chroma ---
-    for by in 0..half_h {
-        let row0 = by * 2;
-        let row1 = row0 + 1;
-        let src0 = row0 * src_stride;
-        let src1 = row1 * src_stride;
-        let dst_uv = by * half_w;
-
-        for bx in 0..half_w {
-            let x0 = bx * 2;
-            let i00 = src0 + x0 * 4;
-            let i01 = i00 + 4;
-            let i10 = src1 + x0 * 4;
-            let i11 = i10 + 4;
-
-            let b_avg = (u32::from(bgra[i00]) + u32::from(bgra[i01]) + u32::from(bgra[i10]) + u32::from(bgra[i11])) >> 2;
-            let g_avg = (u32::from(bgra[i00 + 1]) + u32::from(bgra[i01 + 1]) + u32::from(bgra[i10 + 1]) + u32::from(bgra[i11 + 1])) >> 2;
-            let r_avg = (u32::from(bgra[i00 + 2]) + u32::from(bgra[i01 + 2]) + u32::from(bgra[i10 + 2]) + u32::from(bgra[i11 + 2])) >> 2;
-
-            let u_val = (-26i32 * r_avg as i32 - 87 * g_avg as i32 + 112 * b_avg as i32 + 32768) >> 8;
-            let v_val = (112 * r_avg as i32 - 102 * g_avg as i32 - 10 * b_avg as i32 + 32768) >> 8;
-
-            u_plane[dst_uv + bx] = u_val.clamp(16, 240) as u8;
-            v_plane[dst_uv + bx] = v_val.clamp(16, 240) as u8;
-        }
-    }
+    );
 }
 
 #[cfg(target_arch = "x86_64")]

@@ -67,6 +67,7 @@ impl VirtualDisplay {
     }
 
     /// Capture a BGRA frame. Returns the row stride in bytes.
+    #[tracing::instrument(skip_all)]
     pub fn capture_frame_bgra(&mut self, buf: &mut Vec<u8>) -> Result<u32> {
         #[cfg(feature = "wayland")]
         {

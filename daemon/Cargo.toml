@@ -25,6 +25,8 @@ wayland-protocols-wlr = { version = "0.3", features = ["client"], optional = tru
 libc = { version = "0.2", optional = true }
 evdev = { version = "0.13", optional = true }
 lz4_flex = "0.11"
+tracing-chrome = "0.7.2"
+rayon = "1.12.0"
 
 [features]
 default = ["video-encode", "wayland", "input-inject"]

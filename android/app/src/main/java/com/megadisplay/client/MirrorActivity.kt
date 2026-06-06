@@ -43,6 +43,13 @@ class MirrorActivity : Activity(), MirrorClient.Callbacks {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        val serviceIntent = android.content.Intent(this, MirrorService::class.java)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            startForegroundService(serviceIntent)
+        } else {
+            startService(serviceIntent)
+        }
+
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         fsrView = FsrSurfaceView(this)
@@ -207,6 +214,10 @@ class MirrorActivity : Activity(), MirrorClient.Callbacks {
     override fun onDestroy() {
         isDestroyed = true
         super.onDestroy()
+        
+        val serviceIntent = android.content.Intent(this, MirrorService::class.java)
+        stopService(serviceIntent)
+        
         if (usbReceiverRegistered) {
             unregisterReceiver(usbReceiver)
         }

@@ -65,11 +65,13 @@ impl AoapConnection {
         &self.device
     }
 
+    #[tracing::instrument(skip_all)]
     pub fn send(&mut self, data: &[u8]) -> Result<()> {
         self.ep_out.transfer_blocking(data.to_vec().into(), TIMEOUT).into_result()?;
         Ok(())
     }
 
+    #[tracing::instrument(skip_all)]
     pub fn recv(&mut self, _max_len: usize) -> Result<Vec<u8>> {
         let buf = nusb::transfer::Buffer::new(65_536);
         let buffer = self.ep_in.transfer_blocking(buf, TIMEOUT).into_result()?;
@@ -85,6 +87,7 @@ impl AoapConnection {
 }
 
 impl AoapReader {
+    #[tracing::instrument(skip_all)]
     pub fn recv(&mut self, _max_len: usize) -> Result<Vec<u8>> {
         let buf = nusb::transfer::Buffer::new(1_048_576); // 1MB — large enough for full keyframes
         let buffer = self.ep_in.transfer_blocking(buf, Duration::from_secs(3600)).into_result()?;
@@ -99,6 +102,7 @@ impl TransportRead for AoapReader {
 }
 
 impl AoapWriter {
+    #[tracing::instrument(skip_all)]
     pub fn send(&mut self, data: &[u8]) -> Result<()> {
         self.ep_out.transfer_blocking(data.to_vec().into(), TIMEOUT).into_result()?;
         Ok(())

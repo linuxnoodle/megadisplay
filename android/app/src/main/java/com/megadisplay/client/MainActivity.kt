@@ -46,6 +46,19 @@ class MainActivity : Activity() {
         checkForUsbAccessory(intent)
     }
 
+    override fun onResume() {
+        super.onResume()
+        val usbManager = getSystemService(android.content.Context.USB_SERVICE) as UsbManager
+        val accessory = usbManager.accessoryList?.firstOrNull()
+        if (accessory != null && usbManager.hasPermission(accessory)) {
+            Log.i(TAG, "Accessory already connected, auto-launching MirrorActivity")
+            val mirrorIntent = Intent(this, MirrorActivity::class.java).apply {
+                putExtra(UsbManager.EXTRA_ACCESSORY, accessory)
+            }
+            startActivity(mirrorIntent)
+        }
+    }
+
     private fun checkForUsbAccessory(intent: Intent?) {
         val accessory = intent?.getUsbAccessory(UsbManager.EXTRA_ACCESSORY)
         if (accessory != null) {

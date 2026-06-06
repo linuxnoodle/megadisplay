@@ -249,7 +249,12 @@ pub mod uinput {
                 0
             };
 
-            let in_range = flags & (PEN_FLAG_CONTACT | PEN_FLAG_HOVER) != 0;
+            let in_range = if move_cursor {
+                flags & (PEN_FLAG_CONTACT | PEN_FLAG_HOVER) != 0
+            } else {
+                flags & PEN_FLAG_CONTACT != 0
+            };
+
             let touching = flags & PEN_FLAG_CONTACT != 0;
             let button = flags & PEN_FLAG_BUTTON != 0;
             let is_eraser = flags & PEN_FLAG_ERASER != 0;
@@ -329,18 +334,16 @@ pub mod uinput {
             }
 
             // Position
-            if move_cursor {
-                events.push(InputEvent::new_now(
-                    EventType::ABSOLUTE.0,
-                    AbsoluteAxisCode::ABS_X.0,
-                    x,
-                ));
-                events.push(InputEvent::new_now(
-                    EventType::ABSOLUTE.0,
-                    AbsoluteAxisCode::ABS_Y.0,
-                    y,
-                ));
-            }
+            events.push(InputEvent::new_now(
+                EventType::ABSOLUTE.0,
+                AbsoluteAxisCode::ABS_X.0,
+                x,
+            ));
+            events.push(InputEvent::new_now(
+                EventType::ABSOLUTE.0,
+                AbsoluteAxisCode::ABS_Y.0,
+                y,
+            ));
             events.push(InputEvent::new_now(
                 EventType::ABSOLUTE.0,
                 AbsoluteAxisCode::ABS_PRESSURE.0,

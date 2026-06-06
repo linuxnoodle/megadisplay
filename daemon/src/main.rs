@@ -31,14 +31,31 @@ struct Cli {
 
     #[arg(long)]
     tcp: Option<u16>,
+
+    #[arg(long)]
+    trace: bool,
 }
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    tracing_subscriber::fmt()
-        .with_env_filter(&cli.log)
-        .init();
+    let _trace_guard = if cli.trace {
+        use tracing_subscriber::prelude::*;
+        let (chrome_layer, guard) = tracing_chrome::ChromeLayerBuilder::new()
+            .include_args(true)
+            .build();
+        tracing_subscriber::registry()
+            .with(tracing_subscriber::EnvFilter::new(&cli.log))
+            .with(tracing_subscriber::fmt::layer())
+            .with(chrome_layer)
+            .init();
+        Some(guard)
+    } else {
+        tracing_subscriber::fmt()
+            .with_env_filter(&cli.log)
+            .init();
+        None
+    };
 
     info!("megadisplayd starting");
 

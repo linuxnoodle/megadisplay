@@ -1,5 +1,6 @@
 package com.megadisplay.client.transport
 
+import android.os.Trace
 import android.util.Log
 import com.megadisplay.client.protocol.DataType
 import com.megadisplay.client.protocol.Handshake
@@ -153,7 +154,9 @@ abstract class Transport(
 
             while (running) {
                 timeoutTicks.set(Protocol.TIMEOUT_TICKS)
+                Trace.beginSection("USB Read Wait Header")
                 readExact(fragHeader, 0, 3)
+                Trace.endSection()
                 if (!running) break
 
                 val streamId = fragHeader[0].toInt()
@@ -163,15 +166,21 @@ abstract class Transport(
                 if (streamId !in 0..1) {
                     if (fragLen > 0) {
                         val skip = ByteArray(fragLen)
+                        Trace.beginSection("USB Read Wait Skip")
                         readExact(skip, 0, fragLen)
+                        Trace.endSection()
                     }
                     continue
                 }
 
                 val fragData = ByteArray(fragLen)
+                Trace.beginSection("USB Read Wait Data")
                 readExact(fragData, 0, fragLen)
+                Trace.endSection()
 
+                Trace.beginSection("USB Process Fragment")
                 processFragment(streamId, fragData)
+                Trace.endSection()
             }
         } catch (e: Exception) {
             Log.e("Transport", "readLoop exception", e)
