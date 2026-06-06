@@ -1,0 +1,32 @@
+pkgname=megadisplay-git
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="MegaDisplay - Use an Android tablet as a Linux monitor and pentablet"
+arch=('x86_64')
+url="https://github.com/YOUR_USERNAME/megadisplay"
+license=('MIT')
+depends=('ffmpeg')
+makedepends=('cargo' 'git')
+provides=('megadisplay')
+conflicts=('megadisplay')
+source=("git+https://github.com/YOUR_USERNAME/megadisplay.git")
+md5sums=('SKIP')
+
+pkgver() {
+  cd "$srcdir/megadisplay"
+  git describe --long --tags | sed 's/\([^-]*-g\)/r\1/;s/-/./g' ||
+  printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
+
+build() {
+  cd "$srcdir/megadisplay"
+  cargo build --release --locked --all
+}
+
+package() {
+  cd "$srcdir/megadisplay"
+  install -Dm755 target/release/megadisplayd "$pkgdir/usr/bin/megadisplayd"
+  install -Dm755 target/release/megadisplayctl "$pkgdir/usr/bin/megadisplayctl"
+  install -Dm755 target/release/megadisplayctl-gui "$pkgdir/usr/bin/megadisplayctl-gui"
+  install -Dm644 daemon/systemd/megadisplayd.service "$pkgdir/usr/lib/systemd/user/megadisplayd.service"
+}

@@ -19,23 +19,26 @@ The daemon injects touch and stylus events from the tablet back into the Linux h
 
 - A Wayland compositor supporting the wlroots screencopy protocol (such as Hyprland).
 - A Rust toolchain to compile the daemon.
+- `ffmpeg` installed on the host for hardware-accelerated video encoding.
 - Access to `/dev/uinput` so the daemon can inject touch and pen events.
 
 ### Installation and Usage
 
-Install the provided APK on your tablet. Then, build the host binaries and install the systemd service.
+To install MegaDisplay, you can download the latest pre-compiled binaries and signed APK from the [GitHub Releases](#) page. If you are on Arch Linux, a `PKGBUILD` is available to build and install the daemon natively using `makepkg`.
+
+Alternatively, to build everything from source, first install the provided APK on your tablet. Then, compile and install the host binaries.
 
 ```bash
 make install
 ```
 
-Enable and start the background daemon.
+Once installed, enable and start the background daemon.
 
 ```bash
 systemctl --user enable --now megadisplayd
 ```
 
-Plug the tablet into your computer using a USB cable and open the MegaDisplay app. The daemon will automatically detect the tablet and start streaming. You can configure settings like the bitrate and refresh rate by launching the control panel from your terminal.
+Plug the tablet into your computer using a USB cable and open the MegaDisplay app. The daemon will automatically detect the tablet and start streaming. You can configure settings like the hardware encoder, bitrate, and refresh rate by launching the control panel from your terminal.
 
 ```bash
 megadisplayctl-gui
@@ -44,18 +47,19 @@ megadisplayctl-gui
 ### Supported Hardware
 
 The driver is currently tested and verified on:
-- Host: CachyOS running Hyprland 0.55.2
+- Host: Arch Linux running Hyprland 0.55.2 with an AMD Radeon RX 6950 XT
 - Tablet: Samsung Galaxy Tab S9 (SM-X810)
-I'll go ahead and try this out on my laptop later.
 
 ### Performance
 
-The following pipeline latencies were measured over a continuous run on the above hardware using the `megadisplayctl stats` command.
+With the recent integration of asynchronous hardware encoding via FFmpeg (VAAPI/NVENC/AMF), the daemon is now capable of driving the tablet at its native resolution (2800x1752) at 120Hz with virtually zero CPU overhead.
+
+The following pipeline latencies were measured over a continuous run at 2800x1752 @ 120Hz using the `megadisplayctl stats` command. Because the hardware encoder runs asynchronously, the total frame processing time is significantly less than the sum of its parts.
 
 | Pipeline Stage | Average Delay (ms) |
 | --- | --- |
-| Compositor Wait | 2.86 ± 0.68 |
-| SHM Copy | 1.66 ± 0.99 |
-| BGRA→YUV Conversion | 4.17 ± 0.63 |
-| H.264 Encode | 10.11 ± 1.35 |
-| **Frame Total** | **14.21 ± 2.15** |
+| Compositor Wait | 4.8 ± 0.5 |
+| SHM Copy | 2.7 ± 0.2 |
+| BGRA→NV12 (GPU) | 0.0 ± 0.0 |
+| H.264 Encode (VAAPI) | 8.7 ± 0.8 |
+| **Daemon Frame Loop** | **8.2 ± 1.1** |

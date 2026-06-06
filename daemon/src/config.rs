@@ -23,6 +23,12 @@ pub struct VideoConfig {
     pub refresh_hz: u32,
     #[serde(default)]
     pub auto_bitrate: bool,
+    #[serde(default = "default_encoder")]
+    pub encoder: String,
+}
+
+fn default_encoder() -> String {
+    "vaapi".to_string()
 }
 
 fn default_encode_scale() -> f32 {
@@ -75,6 +81,7 @@ impl Default for Config {
                 encode_scale: 1.0,
                 refresh_hz: 120,
                 auto_bitrate: false,
+                encoder: "vaapi".into(),
             },
             input: InputConfig {
                 touch: true,

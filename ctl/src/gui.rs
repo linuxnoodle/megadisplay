@@ -366,7 +366,11 @@ impl eframe::App for MegaDisplayApp {
                     ui.end_row();
 
                     ui.label("FPS:");
-                    ui.add(egui::DragValue::new(&mut cfg.video.fps).range(15..=120));
+                    let fps_dv = egui::DragValue::new(&mut cfg.video.fps)
+                        .range(0..=240)
+                        .custom_formatter(|n, _| if n == 0.0 { "Uncapped".into() } else { format!("{} FPS", n) });
+                    ui.add(fps_dv)
+                        .on_hover_text("Streaming FPS cap: Limits how fast frames are encoded and transmitted to the device.\n\nSet to 'Uncapped' (0) to encode as fast as the screen refreshes.");
                     ui.end_row();
 
                     ui.label("Bitrate (kbps):");
@@ -383,11 +387,23 @@ impl eframe::App for MegaDisplayApp {
                     ui.end_row();
 
                     ui.label("Refresh rate:");
-                    ui.add(egui::DragValue::new(&mut cfg.video.refresh_hz).range(10..=240).suffix(" Hz"));
+                    ui.add(egui::DragValue::new(&mut cfg.video.refresh_hz).range(10..=240).suffix(" Hz"))
+                        .on_hover_text("Headless Refresh Rate: The hardware rendering rate of the virtual monitor in Hyprland.\n\nHigher values reduce input latency but increase compositor load.\n(Changing this will momentarily drop the USB connection to reconfigure the output).");
                     ui.end_row();
 
                     ui.label("Auto bitrate:");
                     ui.checkbox(&mut cfg.video.auto_bitrate, "Enabled");
+                    ui.end_row();
+
+                    ui.label("Encoder:");
+                    egui::ComboBox::from_id_source("encoder_cb")
+                        .selected_text(&cfg.video.encoder)
+                        .show_ui(ui, |ui| {
+                            ui.selectable_value(&mut cfg.video.encoder, "vaapi".into(), "vaapi (Intel/AMD)");
+                            ui.selectable_value(&mut cfg.video.encoder, "amf".into(), "amf (AMD)");
+                            ui.selectable_value(&mut cfg.video.encoder, "nvenc".into(), "nvenc (NVIDIA)");
+                            ui.selectable_value(&mut cfg.video.encoder, "software".into(), "software (libx264)");
+                        });
                     ui.end_row();
                 });
 
@@ -402,6 +418,7 @@ impl eframe::App for MegaDisplayApp {
                         encode_scale: Some(v.encode_scale),
                         refresh_hz: Some(v.refresh_hz),
                         auto_bitrate: Some(v.auto_bitrate),
+                        encoder: Some(v.encoder.clone()),
                         enabled: None,
                     });
                 }

@@ -55,7 +55,7 @@ pub enum Request {
     GetStats,
     GetConfig,
     SetConfig { config: Config },
-    SetVideo { width: Option<u32>, height: Option<u32>, fps: Option<u32>, bitrate_kbps: Option<u32>, encode_scale: Option<f32>, refresh_hz: Option<u32>, auto_bitrate: Option<bool>, enabled: Option<bool> },
+    SetVideo { width: Option<u32>, height: Option<u32>, fps: Option<u32>, bitrate_kbps: Option<u32>, encode_scale: Option<f32>, refresh_hz: Option<u32>, auto_bitrate: Option<bool>, encoder: Option<String>, enabled: Option<bool> },
     SetInput { touch: Option<bool>, pen: Option<bool>, keyboard: Option<bool>, pen_cursor: Option<bool> },
     Shutdown,
 }
@@ -222,7 +222,7 @@ fn handle_client(
                 let _ = c.save();
                 Response::Ok
             }
-            Request::SetVideo { width, height, fps, bitrate_kbps, encode_scale, refresh_hz, auto_bitrate, enabled: _ } => {
+            Request::SetVideo { width, height, fps, bitrate_kbps, encode_scale, refresh_hz, auto_bitrate, encoder, enabled: _ } => {
                 let mut c = config.lock().unwrap();
                 if let Some(w) = width { c.video.width = w; }
                 if let Some(h) = height { c.video.height = h; }
@@ -231,6 +231,7 @@ fn handle_client(
                 if let Some(s) = encode_scale { c.video.encode_scale = s.clamp(0.25, 1.0); }
                 if let Some(r) = refresh_hz { c.video.refresh_hz = r.clamp(10, 240); }
                 if let Some(a) = auto_bitrate { c.video.auto_bitrate = a; }
+                if let Some(e) = encoder { c.video.encoder = e; }
                 let _ = c.save();
                 Response::Ok
             }

@@ -177,8 +177,15 @@ fn cmd_set(
 
     if has_video {
         match send_request(socket, &Request::SetVideo {
-            width, height, fps, bitrate_kbps: bitrate, encode_scale,
-            refresh_hz, auto_bitrate, enabled: None,
+            width,
+            height,
+            fps,
+            bitrate_kbps: bitrate,
+            encode_scale,
+            refresh_hz,
+            auto_bitrate,
+            encoder: None,
+            enabled: None,
         })? {
             Response::Ok => println!("Video settings applied"),
             Response::Error { message } => anyhow::bail!("{message}"),

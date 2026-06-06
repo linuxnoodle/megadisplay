@@ -64,6 +64,12 @@ pub struct VideoConfig {
     pub refresh_hz: u32,
     #[serde(default)]
     pub auto_bitrate: bool,
+    #[serde(default = "default_encoder")]
+    pub encoder: String,
+}
+
+fn default_encoder() -> String {
+    "vaapi".into()
 }
 
 fn default_one() -> f32 {
@@ -108,6 +114,7 @@ pub enum Request {
         encode_scale: Option<f32>,
         refresh_hz: Option<u32>,
         auto_bitrate: Option<bool>,
+        encoder: Option<String>,
         enabled: Option<bool>,
     },
     SetInput {

@@ -239,14 +239,25 @@ fn run_session<R: transport::TransportRead + 'static, W: transport::TransportWri
 
     let mut fragment_writer = transport::FragmentWriter::new();
     let mut configured = false;
-    let cfg = config.lock().unwrap().clone();
-    let frame_interval = Duration::from_secs_f64(1.0 / cfg.video.fps as f64);
+    let initial_cfg = config.lock().unwrap().clone();
+    let frame_interval = Duration::from_secs_f64(1.0 / initial_cfg.video.fps as f64);
     let mut last_keepalive = Instant::now();
     let keepalive_interval = Duration::from_secs(1);
 
     loop {
         if shutdown.load(Ordering::SeqCst) {
             break;
+        }
+
+        {
+            let current_cfg = config.lock().unwrap();
+            if current_cfg.video.width != initial_cfg.video.width
+                || current_cfg.video.height != initial_cfg.video.height
+                || current_cfg.video.refresh_hz != initial_cfg.video.refresh_hz
+            {
+                info!("Video dimensions or refresh rate changed, dropping session to reconfigure");
+                break;
+            }
         }
 
         if last_keepalive.elapsed() >= keepalive_interval {
@@ -435,6 +446,7 @@ fn video_capture_loop(
         });
 
     let mut frame_buf = Vec::new();
+    let mut last_capture_time = Instant::now();
 
     loop {
         if kill_switch.load(Ordering::SeqCst) {
@@ -463,6 +475,16 @@ fn video_capture_loop(
         if let Ok(recycled) = rx_pool.try_recv() {
             frame_buf = recycled;
         }
+
+        let target_fps = config.lock().unwrap().video.fps;
+        if target_fps > 0 {
+            let frame_duration = Duration::from_secs_f64(1.0 / target_fps as f64);
+            let elapsed = last_capture_time.elapsed();
+            if elapsed < frame_duration {
+                std::thread::sleep(frame_duration - elapsed);
+            }
+        }
+        last_capture_time = Instant::now();
     }
 
     info!("Capture thread ending");
@@ -487,6 +509,7 @@ fn encode_loop(
     let mut cur_enc_h = 0u32;
     let mut cur_fps = 0u32;
     let mut cur_bitrate = 0u32;
+    let mut cur_encoder_type = String::new();
     let mut fragment_writer = transport::FragmentWriter::new();
     let mut frame_count = 0u64;
     let mut dropped_count = 0u64;
@@ -518,16 +541,18 @@ fn encode_loop(
                 || new_enc_w != cur_enc_w
                 || new_enc_h != cur_enc_h
                 || cfg.video.fps != cur_fps
-                || cfg.video.bitrate_kbps != cur_bitrate;
+                || cfg.video.bitrate_kbps != cur_bitrate
+                || cfg.video.encoder != cur_encoder_type;
 
             if need_reconfig && cfg.video.bitrate_kbps > 0 {
                 info!(
-                    "Configuring encoder: {}x{} @ {}fps, {}kbps",
-                    new_enc_w, new_enc_h, cfg.video.fps, cfg.video.bitrate_kbps
+                    "Configuring encoder: {}x{} @ {}fps, {}kbps, encoder={}",
+                    new_enc_w, new_enc_h, cfg.video.fps, cfg.video.bitrate_kbps, cfg.video.encoder
                 );
-                match video::VideoEncoder::new(capture_width, capture_height, new_enc_w, new_enc_h) {
+                match video::VideoEncoder::new(capture_width, capture_height, new_enc_w, new_enc_h, cfg.video.encoder.clone()) {
                     Ok(mut e) => {
-                        if let Err(e) = e.start(cfg.video.bitrate_kbps, cfg.video.fps) {
+                        let actual_fps = if cfg.video.fps > 0 { cfg.video.fps } else { cfg.video.refresh_hz };
+                        if let Err(e) = e.start(cfg.video.bitrate_kbps, actual_fps) {
                             error!("Encoder start failed: {}", e);
                         } else {
                             encoder = Some(e);
@@ -535,6 +560,7 @@ fn encode_loop(
                             cur_enc_h = new_enc_h;
                             cur_fps = cfg.video.fps;
                             cur_bitrate = cfg.video.bitrate_kbps;
+                            cur_encoder_type = cfg.video.encoder.clone();
                         }
                     }
                     Err(e) => error!("Encoder creation failed: {}", e),
