@@ -1,1 +1,0 @@
-sed -i 's/send_aoap_string(&device, AOAP_STRING_VERSION, "1.0")?;/send_aoap_string(\&device, AOAP_STRING_VERSION, "1.0")?;\n    send_aoap_string(\&device, 4, "https:\/\/megadisplay.com")?;\n    send_aoap_string(\&device, 5, "1234567890")?;/g' daemon/src/transport.rs

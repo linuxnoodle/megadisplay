@@ -37,6 +37,3 @@ video-encode = []
 wayland = ["dep:wayland-client", "dep:wayland-protocols-wlr", "dep:wayland-protocols", "dep:libc"]
 input-inject = ["dep:evdev", "dep:libc"]
 
-[[test]]
-name = "uinput_test"
-path = "../../tmp/test_uinput.rs"
