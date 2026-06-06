@@ -76,7 +76,7 @@ impl Default for Config {
             video: VideoConfig {
                 width: 1920,
                 height: 1200,
-                fps: 60,
+                fps: 0,
                 bitrate_kbps: 8000,
                 encode_scale: 1.0,
                 refresh_hz: 120,

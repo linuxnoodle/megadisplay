@@ -173,6 +173,9 @@ class MirrorActivity : Activity(), MirrorClient.Callbacks {
     }
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+            overlayView?.requestUnbufferedDispatch(ev)
+        }
         val handler = inputHandler
         if (handler != null) {
             val tool = if (ev.pointerCount > 0) ev.getToolType(0) else MotionEvent.TOOL_TYPE_FINGER
@@ -185,6 +188,9 @@ class MirrorActivity : Activity(), MirrorClient.Callbacks {
     }
 
     override fun dispatchGenericMotionEvent(ev: MotionEvent): Boolean {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+            overlayView?.requestUnbufferedDispatch(ev)
+        }
         val handler = inputHandler
         if (handler != null) {
             val tool = if (ev.pointerCount > 0) ev.getToolType(0) else MotionEvent.TOOL_TYPE_FINGER

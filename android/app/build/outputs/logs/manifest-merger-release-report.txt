@@ -1,9 +1,9 @@
 -- Merging decision tree log ---
 manifest
-ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:2:1-55:12
-INJECTED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:2:1-55:12
-INJECTED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:2:1-55:12
-INJECTED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:2:1-55:12
+ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:2:1-56:12
+INJECTED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:2:1-56:12
+INJECTED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:2:1-56:12
+INJECTED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:2:1-56:12
 MERGED from [androidx.appcompat:appcompat-resources:1.7.0] /home/qed/.gradle/caches/8.11.1/transforms/c0fd8446272f1b4fe17d4ad935912f6f/transformed/appcompat-resources-1.7.0/AndroidManifest.xml:2:1-7:12
 MERGED from [androidx.appcompat:appcompat:1.7.0] /home/qed/.gradle/caches/8.11.1/transforms/e5317df76a22a2b0d227c281548b0a3b/transformed/appcompat-1.7.0/AndroidManifest.xml:2:1-7:12
 MERGED from [androidx.fragment:fragment:1.5.4] /home/qed/.gradle/caches/8.11.1/transforms/f61735406c0394b51a62885f410c8e1f/transformed/fragment-1.5.4/AndroidManifest.xml:17:1-24:12
@@ -60,21 +60,25 @@ uses-permission#android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE
 ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:7:5-94
 	android:name
 		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:7:22-91
-uses-feature#android.hardware.usb.accessory
-ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:9:5-92
-	android:required
-		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:9:65-89
+uses-permission#android.permission.WAKE_LOCK
+ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:8:5-68
 	android:name
-		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:9:19-64
-uses-feature#0x00020000
-ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:10:5-78
-	android:glEsVersion
-		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:10:19-51
+		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:8:22-65
+uses-feature#android.hardware.usb.accessory
+ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:10:5-92
 	android:required
-		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:10:52-75
+		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:10:65-89
+	android:name
+		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:10:19-64
+uses-feature#0x00020000
+ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:11:5-78
+	android:glEsVersion
+		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:11:19-51
+	android:required
+		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:11:52-75
 application
-ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:12:5-53:19
-INJECTED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:12:5-53:19
+ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:13:5-54:19
+INJECTED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:13:5-54:19
 MERGED from [androidx.emoji2:emoji2:1.3.0] /home/qed/.gradle/caches/8.11.1/transforms/6d8bc302aeb654f3acf235860b2b4666/transformed/emoji2-1.3.0/AndroidManifest.xml:23:5-33:19
 MERGED from [androidx.emoji2:emoji2:1.3.0] /home/qed/.gradle/caches/8.11.1/transforms/6d8bc302aeb654f3acf235860b2b4666/transformed/emoji2-1.3.0/AndroidManifest.xml:23:5-33:19
 MERGED from [androidx.core:core:1.15.0] /home/qed/.gradle/caches/8.11.1/transforms/21db0778de166bcbbc4981f0ea6f007f/transformed/core-1.15.0/AndroidManifest.xml:28:5-89
@@ -92,73 +96,73 @@ MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] /home/qed/.
 	android:appComponentFactory
 		ADDED from [androidx.core:core:1.15.0] /home/qed/.gradle/caches/8.11.1/transforms/21db0778de166bcbbc4981f0ea6f007f/transformed/core-1.15.0/AndroidManifest.xml:28:18-86
 	android:supportsRtl
-		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:14:9-35
+		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:15:9-35
 	android:label
-		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:15:9-41
+		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:16:9-41
 	android:icon
-		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:16:9-43
+		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:17:9-43
 	android:allowBackup
-		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:13:9-35
+		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:14:9-35
 	android:theme
-		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:17:9-49
+		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:18:9-49
 activity#com.megadisplay.client.MainActivity
-ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:19:9-27:20
+ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:20:9-28:20
 	android:launchMode
-		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:22:13-44
+		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:23:13-44
 	android:exported
-		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:21:13-36
+		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:22:13-36
 	android:name
-		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:20:13-41
+		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:21:13-41
 intent-filter#action:name:android.intent.action.MAIN+category:name:android.intent.category.LAUNCHER
-ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:23:13-26:29
+ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:24:13-27:29
 action#android.intent.action.MAIN
-ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:24:17-69
+ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:25:17-69
 	android:name
-		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:24:25-66
+		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:25:25-66
 category#android.intent.category.LAUNCHER
-ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:25:17-77
+ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:26:17-77
 	android:name
-		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:25:27-74
+		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:26:27-74
 activity#com.megadisplay.client.MirrorActivity
-ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:29:9-35:67
+ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:30:9-36:67
 	android:launchMode
-		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:32:13-44
+		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:33:13-44
 	android:exported
-		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:31:13-36
+		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:32:13-36
 	android:resizeableActivity
-		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:34:13-47
+		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:35:13-47
 	android:configChanges
-		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:33:13-94
+		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:34:13-94
 	android:theme
-		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:35:13-64
+		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:36:13-64
 	android:name
-		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:30:13-43
+		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:31:13-43
 activity#com.megadisplay.client.UsbAccessoryActivity
-ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:37:9-46:20
+ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:38:9-47:20
 	android:exported
-		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:39:13-36
+		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:40:13-36
 	android:name
-		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:38:13-49
+		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:39:13-49
 intent-filter#action:name:android.hardware.usb.action.USB_ACCESSORY_ATTACHED
-ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:40:13-42:29
+ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:41:13-43:29
 action#android.hardware.usb.action.USB_ACCESSORY_ATTACHED
-ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:41:17-93
+ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:42:17-93
 	android:name
-		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:41:25-90
+		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:42:25-90
 meta-data#android.hardware.usb.action.USB_ACCESSORY_ATTACHED
-ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:43:13-45:60
+ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:44:13-46:60
 	android:resource
-		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:45:17-57
+		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:46:17-57
 	android:name
-		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:44:17-82
+		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:45:17-82
 service#com.megadisplay.client.MirrorService
-ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:48:9-51:63
+ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:49:9-52:63
 	android:exported
-		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:50:13-37
+		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:51:13-37
 	android:foregroundServiceType
-		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:51:13-60
+		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:52:13-60
 	android:name
-		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:49:13-42
+		ADDED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:50:13-42
 uses-sdk
 INJECTED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml reason: use-sdk injection requested
 INJECTED from /home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml

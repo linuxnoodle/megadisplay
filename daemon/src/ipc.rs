@@ -46,6 +46,8 @@ pub struct StatsSnapshot {
     pub convert_ms: f32,
     pub copy_ms: f32,
     pub frame_total_ms: f32,
+    #[serde(default)]
+    pub input_latency_ms: f32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -113,6 +115,7 @@ impl IpcServer {
                 convert_ms: 0.0,
                 copy_ms: 0.0,
                 frame_total_ms: 0.0,
+                input_latency_ms: 0.0,
             })),
             status: Arc::new(Mutex::new(status)),
         }

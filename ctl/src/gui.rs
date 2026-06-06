@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 fn main() -> eframe::Result {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_inner_size([520.0, 640.0])
+            .with_inner_size([520.0, 820.0])
             .with_title("MegaDisplay"),
         ..Default::default()
     };
@@ -29,7 +29,10 @@ struct MegaDisplayApp {
     fps_history: Vec<f32>,
     latency_history: Vec<f32>,
     bitrate_history: Vec<f32>,
+    frametime_history: Vec<f32>,
+    jitter_history: Vec<f32>,
     configured_bitrate: f32,
+    target_frame_ms: f32,
     last_poll: Option<Instant>,
 
     last_frames: u64,
@@ -96,6 +99,28 @@ impl MegaDisplayApp {
             self.latency_history.push(total_latency);
             if self.latency_history.len() > 120 {
                 self.latency_history.remove(0);
+            }
+
+            // Frametime + jitter
+            let ft = s.frame_total_ms;
+            let jitter = if let Some(&prev) = self.frametime_history.last() {
+                (ft - prev).abs()
+            } else {
+                0.0
+            };
+            self.frametime_history.push(ft);
+            if self.frametime_history.len() > 300 {
+                self.frametime_history.remove(0);
+            }
+            self.jitter_history.push(jitter);
+            if self.jitter_history.len() > 300 {
+                self.jitter_history.remove(0);
+            }
+
+            // Update target frame budget from status
+            if let Some(ref st) = self.status {
+                let fps = st.video.fps.max(1);
+                self.target_frame_ms = 1000.0 / fps as f32;
             }
 
             let effective_kbps = if s.frame_total_ms > 0.0 {
@@ -203,8 +228,14 @@ impl eframe::App for MegaDisplayApp {
                         ui.label("Frame size");
                     });
                     cols[3].vertical(|ui| {
-                        ui.label(egui::RichText::new(format!("{}", stats.frames_dropped)).size(28.0).strong());
-                        ui.label("Dropped");
+                        let input_lat = stats.input_latency_ms;
+                        if input_lat > 0.0 {
+                            ui.label(egui::RichText::new(format!("{:.1}ms", input_lat)).size(28.0).strong());
+                            ui.label("Input latency");
+                        } else {
+                            ui.label(egui::RichText::new("--").size(28.0).strong());
+                            ui.label("Input latency");
+                        }
                     });
                 });
 
@@ -253,47 +284,119 @@ impl eframe::App for MegaDisplayApp {
                     ui.end_row();
                 });
 
-                // FPS graph
-                if !self.fps_history.is_empty() {
+                // Frametime + jitter section
+                if !self.frametime_history.is_empty() {
                     ui.add_space(6.0);
-                    ui.label("FPS History:");
-                    ui.allocate_ui(egui::vec2(ui.available_width(), 60.0), |ui| {
-                        egui_plot::Plot::new("fps_plot")
-                            .height(60.0)
-                            .show_axes([false, true])
+
+                    let n = self.frametime_history.len();
+                    let ft_avg = self.frametime_history.iter().sum::<f32>() / n as f32;
+                    let ft_max = self.frametime_history.iter().cloned().fold(0.0f32, f32::max);
+                    let ft_min = self.frametime_history.iter().cloned().fold(f32::INFINITY, f32::min);
+                    let jitter_avg = self.jitter_history.iter().sum::<f32>() / n.max(1) as f32;
+                    let jitter_max = self.jitter_history.iter().cloned().fold(0.0f32, f32::max);
+                    let budget = self.target_frame_ms;
+                    let over_budget = if budget > 0.0 {
+                        self.frametime_history.iter().filter(|&&v| v > budget * 1.1).count()
+                    } else { 0 };
+                    let stability = if n > 0 && budget > 0.0 {
+                        ((n - over_budget) as f32 / n as f32 * 100.0).round() as u32
+                    } else { 100 };
+
+                    // Header with stability badge
+                    ui.horizontal(|ui| {
+                        ui.label(egui::RichText::new("Frametime & Jitter").strong());
+                        let (badge_color, badge_text) = if stability >= 98 {
+                            (egui::Color32::from_rgb(80, 200, 120), "Stable")
+                        } else if stability >= 90 {
+                            (egui::Color32::from_rgb(240, 200, 60), "Uneven")
+                        } else {
+                            (egui::Color32::from_rgb(240, 100, 80), "Unstable")
+                        };
+                        ui.colored_label(badge_color, egui::RichText::new(format!(" {} ", badge_text)).strong());
+                        ui.label(egui::RichText::new(
+                            format!("{}% in budget", stability)).weak().small());
+                    });
+
+                    // Summary numbers
+                    ui.horizontal(|ui| {
+                        ui.label(egui::RichText::new(format!(
+                            "{:.1}\u{2013}{:.1}ms avg {:.1}ms", ft_min, ft_max, ft_avg
+                        )).weak().small());
+                        ui.separator();
+                        ui.label(egui::RichText::new(format!(
+                            "jitter avg {:.1}ms  max {:.1}ms", jitter_avg, jitter_max
+                        )).weak().small());
+                        if stats.frames_dropped > 0 {
+                            ui.separator();
+                            ui.colored_label(
+                                egui::Color32::from_rgb(255, 100, 80),
+                                egui::RichText::new(format!("{} dropped", stats.frames_dropped)).small(),
+                            );
+                        }
+                        if over_budget > 0 {
+                            ui.separator();
+                            ui.colored_label(
+                                egui::Color32::from_rgb(255, 140, 60),
+                                egui::RichText::new(format!("{} spikes", over_budget)).small(),
+                            );
+                        }
+                    });
+
+                    // Frametime plot
+                    ui.allocate_ui(egui::vec2(ui.available_width(), 110.0), |ui| {
+                        egui_plot::Plot::new("frametime_plot")
+                            .height(110.0)
+                            .auto_bounds([false, true])
+                            .include_x(0.0)
+                            .include_x(300.0)
+                            .include_y(0.0)
                             .show(ui, |plot_ui| {
-                                let points: Vec<_> = self.fps_history
-                                    .iter()
-                                    .enumerate()
+                                let ft_points: Vec<_> = self.frametime_history
+                                    .iter().enumerate()
                                     .map(|(i, &v)| [i as f64, v as f64])
                                     .collect();
                                 plot_ui.line(
-                                    egui_plot::Line::new(points)
+                                    egui_plot::Line::new(ft_points)
                                         .color(egui::Color32::from_rgb(100, 200, 255))
-                                        .width(1.5),
+                                        .width(1.2)
+                                        .name("Frametime"),
                                 );
+
+                                if budget > 0.0 {
+                                    let n = self.frametime_history.len();
+                                    let budget_line: Vec<[f64; 2]> = (0..n)
+                                        .map(|i| [i as f64, budget as f64])
+                                        .collect();
+                                    plot_ui.line(
+                                        egui_plot::Line::new(budget_line)
+                                            .color(egui::Color32::from_rgb(200, 80, 80))
+                                            .width(1.0)
+                                            .style(egui_plot::LineStyle::dashed_dense())
+                                            .name("Budget"),
+                                    );
+                                }
                             });
                     });
-                }
 
-                // Latency graph
-                if !self.latency_history.is_empty() {
-                    ui.add_space(4.0);
-                    ui.label("Latency (capture+encode, ms):");
-                    ui.allocate_ui(egui::vec2(ui.available_width(), 60.0), |ui| {
-                        egui_plot::Plot::new("latency_plot")
-                            .height(60.0)
-                            .show_axes([false, true])
+                    // Jitter plot (separate, scaled independently)
+                    ui.allocate_ui(egui::vec2(ui.available_width(), 80.0), |ui| {
+                        egui_plot::Plot::new("jitter_plot")
+                            .height(80.0)
+                            .auto_bounds([false, true])
+                            .include_x(0.0)
+                            .include_x(300.0)
+                            .include_y(0.0)
                             .show(ui, |plot_ui| {
-                                let points: Vec<_> = self.latency_history
-                                    .iter()
-                                    .enumerate()
+                                let jitter_points: Vec<_> = self.jitter_history
+                                    .iter().enumerate()
                                     .map(|(i, &v)| [i as f64, v as f64])
                                     .collect();
                                 plot_ui.line(
-                                    egui_plot::Line::new(points)
-                                        .color(egui::Color32::from_rgb(255, 180, 100))
-                                        .width(1.5),
+                                    egui_plot::Line::new(jitter_points)
+                                        .color(egui::Color32::from_rgb(255, 140, 60))
+                                        .width(1.0)
+                                        .fill(1.0)
+                                        .name("Jitter"),
                                 );
                             });
                     });
@@ -313,10 +416,12 @@ impl eframe::App for MegaDisplayApp {
                             ui.label(egui::RichText::new(format!(" / {:.0} kbps configured", cfg_br)).weak().small());
                         }
                     });
-                    ui.allocate_ui(egui::vec2(ui.available_width(), 60.0), |ui| {
+                    ui.allocate_ui(egui::vec2(ui.available_width(), 100.0), |ui| {
                         egui_plot::Plot::new("bitrate_plot")
-                            .height(60.0)
-                            .show_axes([false, true])
+                            .height(100.0)
+                            .auto_bounds([false, true])
+                            .include_x(0.0)
+                            .include_x(120.0)
                             .show(ui, |plot_ui| {
                                 let br_points: Vec<_> = self.bitrate_history
                                     .iter()
@@ -396,7 +501,7 @@ impl eframe::App for MegaDisplayApp {
                     ui.end_row();
 
                     ui.label("Encoder:");
-                    egui::ComboBox::from_id_source("encoder_cb")
+                    egui::ComboBox::from_id_salt("encoder_cb")
                         .selected_text(&cfg.video.encoder)
                         .show_ui(ui, |ui| {
                             ui.selectable_value(&mut cfg.video.encoder, "vaapi".into(), "vaapi (Intel/AMD)");

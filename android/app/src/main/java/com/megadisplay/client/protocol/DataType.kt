@@ -17,7 +17,8 @@ enum class DataType(val id: Byte) {
     InputKey(13),
     Error(14),
     Keyboard(15),
-    Command(16);
+    Command(16),
+    LatencyReport(17);
 
     companion object {
         fun fromId(id: Byte): DataType? = entries.find { it.id == id }

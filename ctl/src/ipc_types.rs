@@ -43,6 +43,8 @@ pub struct StatsSnapshot {
     pub copy_ms: f32,
     #[serde(default)]
     pub frame_total_ms: f32,
+    #[serde(default)]
+    pub input_latency_ms: f32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

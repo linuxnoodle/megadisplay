@@ -20,175 +20,178 @@
 14    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
 14-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:7:5-94
 14-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:7:22-91
-15
-16    <uses-feature
-16-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:9:5-92
-17        android:name="android.hardware.usb.accessory"
-17-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:9:19-64
-18        android:required="false" />
-18-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:9:65-89
-19    <uses-feature
-19-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:10:5-78
-20        android:glEsVersion="0x00020000"
-20-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:10:19-51
-21        android:required="true" />
-21-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:10:52-75
-22
-23    <permission
-23-->[androidx.core:core:1.15.0] /home/qed/.gradle/caches/8.11.1/transforms/21db0778de166bcbbc4981f0ea6f007f/transformed/core-1.15.0/AndroidManifest.xml:22:5-24:47
-24        android:name="com.megadisplay.client.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
-24-->[androidx.core:core:1.15.0] /home/qed/.gradle/caches/8.11.1/transforms/21db0778de166bcbbc4981f0ea6f007f/transformed/core-1.15.0/AndroidManifest.xml:23:9-81
-25        android:protectionLevel="signature" />
-25-->[androidx.core:core:1.15.0] /home/qed/.gradle/caches/8.11.1/transforms/21db0778de166bcbbc4981f0ea6f007f/transformed/core-1.15.0/AndroidManifest.xml:24:9-44
-26
-27    <uses-permission android:name="com.megadisplay.client.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
-27-->[androidx.core:core:1.15.0] /home/qed/.gradle/caches/8.11.1/transforms/21db0778de166bcbbc4981f0ea6f007f/transformed/core-1.15.0/AndroidManifest.xml:26:5-97
-27-->[androidx.core:core:1.15.0] /home/qed/.gradle/caches/8.11.1/transforms/21db0778de166bcbbc4981f0ea6f007f/transformed/core-1.15.0/AndroidManifest.xml:26:22-94
-28
-29    <application
-29-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:12:5-53:19
-30        android:allowBackup="true"
-30-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:13:9-35
-31        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
-31-->[androidx.core:core:1.15.0] /home/qed/.gradle/caches/8.11.1/transforms/21db0778de166bcbbc4981f0ea6f007f/transformed/core-1.15.0/AndroidManifest.xml:28:18-86
-32        android:debuggable="true"
-33        android:extractNativeLibs="false"
-34        android:icon="@mipmap/ic_launcher"
-34-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:16:9-43
-35        android:label="@string/app_name"
-35-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:15:9-41
-36        android:supportsRtl="true"
-36-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:14:9-35
-37        android:theme="@style/Theme.MegaDisplay" >
-37-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:17:9-49
-38        <activity
-38-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:19:9-27:20
-39            android:name="com.megadisplay.client.MainActivity"
-39-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:20:13-41
-40            android:exported="true"
-40-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:21:13-36
-41            android:launchMode="singleTask" >
-41-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:22:13-44
-42            <intent-filter>
-42-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:23:13-26:29
-43                <action android:name="android.intent.action.MAIN" />
-43-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:24:17-69
-43-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:24:25-66
-44
-45                <category android:name="android.intent.category.LAUNCHER" />
-45-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:25:17-77
-45-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:25:27-74
-46            </intent-filter>
-47        </activity>
-48        <activity
-48-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:29:9-35:67
-49            android:name="com.megadisplay.client.MirrorActivity"
-49-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:30:13-43
-50            android:configChanges="orientation|screenSize|keyboardHidden|keyboard|navigation"
-50-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:33:13-94
-51            android:exported="true"
-51-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:31:13-36
-52            android:launchMode="singleTask"
-52-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:32:13-44
-53            android:resizeableActivity="false"
-53-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:34:13-47
-54            android:theme="@style/Theme.MegaDisplay.Fullscreen" />
-54-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:35:13-64
-55        <activity
-55-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:37:9-46:20
-56            android:name="com.megadisplay.client.UsbAccessoryActivity"
-56-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:38:13-49
-57            android:exported="true" >
-57-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:39:13-36
-58            <intent-filter>
-58-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:40:13-42:29
-59                <action android:name="android.hardware.usb.action.USB_ACCESSORY_ATTACHED" />
-59-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:41:17-93
-59-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:41:25-90
-60            </intent-filter>
-61
-62            <meta-data
-62-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:43:13-45:60
-63                android:name="android.hardware.usb.action.USB_ACCESSORY_ATTACHED"
-63-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:44:17-82
-64                android:resource="@xml/accessory_filter" />
-64-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:45:17-57
-65        </activity>
-66
-67        <service
-67-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:48:9-51:63
-68            android:name="com.megadisplay.client.MirrorService"
-68-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:49:13-42
-69            android:exported="false"
-69-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:50:13-37
-70            android:foregroundServiceType="connectedDevice" />
-70-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:51:13-60
-71
-72        <provider
-72-->[androidx.emoji2:emoji2:1.3.0] /home/qed/.gradle/caches/8.11.1/transforms/6d8bc302aeb654f3acf235860b2b4666/transformed/emoji2-1.3.0/AndroidManifest.xml:24:9-32:20
-73            android:name="androidx.startup.InitializationProvider"
-73-->[androidx.emoji2:emoji2:1.3.0] /home/qed/.gradle/caches/8.11.1/transforms/6d8bc302aeb654f3acf235860b2b4666/transformed/emoji2-1.3.0/AndroidManifest.xml:25:13-67
-74            android:authorities="com.megadisplay.client.androidx-startup"
-74-->[androidx.emoji2:emoji2:1.3.0] /home/qed/.gradle/caches/8.11.1/transforms/6d8bc302aeb654f3acf235860b2b4666/transformed/emoji2-1.3.0/AndroidManifest.xml:26:13-68
-75            android:exported="false" >
-75-->[androidx.emoji2:emoji2:1.3.0] /home/qed/.gradle/caches/8.11.1/transforms/6d8bc302aeb654f3acf235860b2b4666/transformed/emoji2-1.3.0/AndroidManifest.xml:27:13-37
-76            <meta-data
-76-->[androidx.emoji2:emoji2:1.3.0] /home/qed/.gradle/caches/8.11.1/transforms/6d8bc302aeb654f3acf235860b2b4666/transformed/emoji2-1.3.0/AndroidManifest.xml:29:13-31:52
-77                android:name="androidx.emoji2.text.EmojiCompatInitializer"
-77-->[androidx.emoji2:emoji2:1.3.0] /home/qed/.gradle/caches/8.11.1/transforms/6d8bc302aeb654f3acf235860b2b4666/transformed/emoji2-1.3.0/AndroidManifest.xml:30:17-75
-78                android:value="androidx.startup" />
-78-->[androidx.emoji2:emoji2:1.3.0] /home/qed/.gradle/caches/8.11.1/transforms/6d8bc302aeb654f3acf235860b2b4666/transformed/emoji2-1.3.0/AndroidManifest.xml:31:17-49
-79            <meta-data
-79-->[androidx.lifecycle:lifecycle-process:2.8.7] /home/qed/.gradle/caches/8.11.1/transforms/03d2d127a3867e3b8734821d05495128/transformed/lifecycle-process-2.8.7/AndroidManifest.xml:29:13-31:52
-80                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
-80-->[androidx.lifecycle:lifecycle-process:2.8.7] /home/qed/.gradle/caches/8.11.1/transforms/03d2d127a3867e3b8734821d05495128/transformed/lifecycle-process-2.8.7/AndroidManifest.xml:30:17-78
-81                android:value="androidx.startup" />
-81-->[androidx.lifecycle:lifecycle-process:2.8.7] /home/qed/.gradle/caches/8.11.1/transforms/03d2d127a3867e3b8734821d05495128/transformed/lifecycle-process-2.8.7/AndroidManifest.xml:31:17-49
-82            <meta-data
-82-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qed/.gradle/caches/8.11.1/transforms/7c60dfdf6ec1046244923a00e27af3ef/transformed/profileinstaller-1.3.1/AndroidManifest.xml:29:13-31:52
-83                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
-83-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qed/.gradle/caches/8.11.1/transforms/7c60dfdf6ec1046244923a00e27af3ef/transformed/profileinstaller-1.3.1/AndroidManifest.xml:30:17-85
-84                android:value="androidx.startup" />
-84-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qed/.gradle/caches/8.11.1/transforms/7c60dfdf6ec1046244923a00e27af3ef/transformed/profileinstaller-1.3.1/AndroidManifest.xml:31:17-49
-85        </provider>
-86
-87        <receiver
-87-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qed/.gradle/caches/8.11.1/transforms/7c60dfdf6ec1046244923a00e27af3ef/transformed/profileinstaller-1.3.1/AndroidManifest.xml:34:9-52:20
-88            android:name="androidx.profileinstaller.ProfileInstallReceiver"
-88-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qed/.gradle/caches/8.11.1/transforms/7c60dfdf6ec1046244923a00e27af3ef/transformed/profileinstaller-1.3.1/AndroidManifest.xml:35:13-76
-89            android:directBootAware="false"
-89-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qed/.gradle/caches/8.11.1/transforms/7c60dfdf6ec1046244923a00e27af3ef/transformed/profileinstaller-1.3.1/AndroidManifest.xml:36:13-44
-90            android:enabled="true"
-90-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qed/.gradle/caches/8.11.1/transforms/7c60dfdf6ec1046244923a00e27af3ef/transformed/profileinstaller-1.3.1/AndroidManifest.xml:37:13-35
-91            android:exported="true"
-91-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qed/.gradle/caches/8.11.1/transforms/7c60dfdf6ec1046244923a00e27af3ef/transformed/profileinstaller-1.3.1/AndroidManifest.xml:38:13-36
-92            android:permission="android.permission.DUMP" >
-92-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qed/.gradle/caches/8.11.1/transforms/7c60dfdf6ec1046244923a00e27af3ef/transformed/profileinstaller-1.3.1/AndroidManifest.xml:39:13-57
-93            <intent-filter>
-93-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qed/.gradle/caches/8.11.1/transforms/7c60dfdf6ec1046244923a00e27af3ef/transformed/profileinstaller-1.3.1/AndroidManifest.xml:40:13-42:29
-94                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
-94-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qed/.gradle/caches/8.11.1/transforms/7c60dfdf6ec1046244923a00e27af3ef/transformed/profileinstaller-1.3.1/AndroidManifest.xml:41:17-91
-94-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qed/.gradle/caches/8.11.1/transforms/7c60dfdf6ec1046244923a00e27af3ef/transformed/profileinstaller-1.3.1/AndroidManifest.xml:41:25-88
-95            </intent-filter>
-96            <intent-filter>
-96-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qed/.gradle/caches/8.11.1/transforms/7c60dfdf6ec1046244923a00e27af3ef/transformed/profileinstaller-1.3.1/AndroidManifest.xml:43:13-45:29
-97                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
-97-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qed/.gradle/caches/8.11.1/transforms/7c60dfdf6ec1046244923a00e27af3ef/transformed/profileinstaller-1.3.1/AndroidManifest.xml:44:17-85
-97-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qed/.gradle/caches/8.11.1/transforms/7c60dfdf6ec1046244923a00e27af3ef/transformed/profileinstaller-1.3.1/AndroidManifest.xml:44:25-82
-98            </intent-filter>
-99            <intent-filter>
-99-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qed/.gradle/caches/8.11.1/transforms/7c60dfdf6ec1046244923a00e27af3ef/transformed/profileinstaller-1.3.1/AndroidManifest.xml:46:13-48:29
-100                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
-100-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qed/.gradle/caches/8.11.1/transforms/7c60dfdf6ec1046244923a00e27af3ef/transformed/profileinstaller-1.3.1/AndroidManifest.xml:47:17-88
-100-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qed/.gradle/caches/8.11.1/transforms/7c60dfdf6ec1046244923a00e27af3ef/transformed/profileinstaller-1.3.1/AndroidManifest.xml:47:25-85
-101            </intent-filter>
-102            <intent-filter>
-102-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qed/.gradle/caches/8.11.1/transforms/7c60dfdf6ec1046244923a00e27af3ef/transformed/profileinstaller-1.3.1/AndroidManifest.xml:49:13-51:29
-103                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
-103-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qed/.gradle/caches/8.11.1/transforms/7c60dfdf6ec1046244923a00e27af3ef/transformed/profileinstaller-1.3.1/AndroidManifest.xml:50:17-95
-103-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qed/.gradle/caches/8.11.1/transforms/7c60dfdf6ec1046244923a00e27af3ef/transformed/profileinstaller-1.3.1/AndroidManifest.xml:50:25-92
-104            </intent-filter>
-105        </receiver>
-106    </application>
-107
-108</manifest>
+15    <uses-permission android:name="android.permission.WAKE_LOCK" />
+15-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:8:5-68
+15-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:8:22-65
+16
+17    <uses-feature
+17-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:10:5-92
+18        android:name="android.hardware.usb.accessory"
+18-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:10:19-64
+19        android:required="false" />
+19-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:10:65-89
+20    <uses-feature
+20-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:11:5-78
+21        android:glEsVersion="0x00020000"
+21-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:11:19-51
+22        android:required="true" />
+22-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:11:52-75
+23
+24    <permission
+24-->[androidx.core:core:1.15.0] /home/qed/.gradle/caches/8.11.1/transforms/21db0778de166bcbbc4981f0ea6f007f/transformed/core-1.15.0/AndroidManifest.xml:22:5-24:47
+25        android:name="com.megadisplay.client.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+25-->[androidx.core:core:1.15.0] /home/qed/.gradle/caches/8.11.1/transforms/21db0778de166bcbbc4981f0ea6f007f/transformed/core-1.15.0/AndroidManifest.xml:23:9-81
+26        android:protectionLevel="signature" />
+26-->[androidx.core:core:1.15.0] /home/qed/.gradle/caches/8.11.1/transforms/21db0778de166bcbbc4981f0ea6f007f/transformed/core-1.15.0/AndroidManifest.xml:24:9-44
+27
+28    <uses-permission android:name="com.megadisplay.client.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+28-->[androidx.core:core:1.15.0] /home/qed/.gradle/caches/8.11.1/transforms/21db0778de166bcbbc4981f0ea6f007f/transformed/core-1.15.0/AndroidManifest.xml:26:5-97
+28-->[androidx.core:core:1.15.0] /home/qed/.gradle/caches/8.11.1/transforms/21db0778de166bcbbc4981f0ea6f007f/transformed/core-1.15.0/AndroidManifest.xml:26:22-94
+29
+30    <application
+30-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:13:5-54:19
+31        android:allowBackup="true"
+31-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:14:9-35
+32        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
+32-->[androidx.core:core:1.15.0] /home/qed/.gradle/caches/8.11.1/transforms/21db0778de166bcbbc4981f0ea6f007f/transformed/core-1.15.0/AndroidManifest.xml:28:18-86
+33        android:debuggable="true"
+34        android:extractNativeLibs="false"
+35        android:icon="@mipmap/ic_launcher"
+35-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:17:9-43
+36        android:label="@string/app_name"
+36-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:16:9-41
+37        android:supportsRtl="true"
+37-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:15:9-35
+38        android:theme="@style/Theme.MegaDisplay" >
+38-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:18:9-49
+39        <activity
+39-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:20:9-28:20
+40            android:name="com.megadisplay.client.MainActivity"
+40-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:21:13-41
+41            android:exported="true"
+41-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:22:13-36
+42            android:launchMode="singleTask" >
+42-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:23:13-44
+43            <intent-filter>
+43-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:24:13-27:29
+44                <action android:name="android.intent.action.MAIN" />
+44-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:25:17-69
+44-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:25:25-66
+45
+46                <category android:name="android.intent.category.LAUNCHER" />
+46-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:26:17-77
+46-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:26:27-74
+47            </intent-filter>
+48        </activity>
+49        <activity
+49-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:30:9-36:67
+50            android:name="com.megadisplay.client.MirrorActivity"
+50-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:31:13-43
+51            android:configChanges="orientation|screenSize|keyboardHidden|keyboard|navigation"
+51-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:34:13-94
+52            android:exported="true"
+52-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:32:13-36
+53            android:launchMode="singleTask"
+53-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:33:13-44
+54            android:resizeableActivity="false"
+54-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:35:13-47
+55            android:theme="@style/Theme.MegaDisplay.Fullscreen" />
+55-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:36:13-64
+56        <activity
+56-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:38:9-47:20
+57            android:name="com.megadisplay.client.UsbAccessoryActivity"
+57-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:39:13-49
+58            android:exported="true" >
+58-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:40:13-36
+59            <intent-filter>
+59-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:41:13-43:29
+60                <action android:name="android.hardware.usb.action.USB_ACCESSORY_ATTACHED" />
+60-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:42:17-93
+60-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:42:25-90
+61            </intent-filter>
+62
+63            <meta-data
+63-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:44:13-46:60
+64                android:name="android.hardware.usb.action.USB_ACCESSORY_ATTACHED"
+64-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:45:17-82
+65                android:resource="@xml/accessory_filter" />
+65-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:46:17-57
+66        </activity>
+67
+68        <service
+68-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:49:9-52:63
+69            android:name="com.megadisplay.client.MirrorService"
+69-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:50:13-42
+70            android:exported="false"
+70-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:51:13-37
+71            android:foregroundServiceType="connectedDevice" />
+71-->/home/qed/Projects/megadisplay/android/app/src/main/AndroidManifest.xml:52:13-60
+72
+73        <provider
+73-->[androidx.emoji2:emoji2:1.3.0] /home/qed/.gradle/caches/8.11.1/transforms/6d8bc302aeb654f3acf235860b2b4666/transformed/emoji2-1.3.0/AndroidManifest.xml:24:9-32:20
+74            android:name="androidx.startup.InitializationProvider"
+74-->[androidx.emoji2:emoji2:1.3.0] /home/qed/.gradle/caches/8.11.1/transforms/6d8bc302aeb654f3acf235860b2b4666/transformed/emoji2-1.3.0/AndroidManifest.xml:25:13-67
+75            android:authorities="com.megadisplay.client.androidx-startup"
+75-->[androidx.emoji2:emoji2:1.3.0] /home/qed/.gradle/caches/8.11.1/transforms/6d8bc302aeb654f3acf235860b2b4666/transformed/emoji2-1.3.0/AndroidManifest.xml:26:13-68
+76            android:exported="false" >
+76-->[androidx.emoji2:emoji2:1.3.0] /home/qed/.gradle/caches/8.11.1/transforms/6d8bc302aeb654f3acf235860b2b4666/transformed/emoji2-1.3.0/AndroidManifest.xml:27:13-37
+77            <meta-data
+77-->[androidx.emoji2:emoji2:1.3.0] /home/qed/.gradle/caches/8.11.1/transforms/6d8bc302aeb654f3acf235860b2b4666/transformed/emoji2-1.3.0/AndroidManifest.xml:29:13-31:52
+78                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+78-->[androidx.emoji2:emoji2:1.3.0] /home/qed/.gradle/caches/8.11.1/transforms/6d8bc302aeb654f3acf235860b2b4666/transformed/emoji2-1.3.0/AndroidManifest.xml:30:17-75
+79                android:value="androidx.startup" />
+79-->[androidx.emoji2:emoji2:1.3.0] /home/qed/.gradle/caches/8.11.1/transforms/6d8bc302aeb654f3acf235860b2b4666/transformed/emoji2-1.3.0/AndroidManifest.xml:31:17-49
+80            <meta-data
+80-->[androidx.lifecycle:lifecycle-process:2.8.7] /home/qed/.gradle/caches/8.11.1/transforms/03d2d127a3867e3b8734821d05495128/transformed/lifecycle-process-2.8.7/AndroidManifest.xml:29:13-31:52
+81                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+81-->[androidx.lifecycle:lifecycle-process:2.8.7] /home/qed/.gradle/caches/8.11.1/transforms/03d2d127a3867e3b8734821d05495128/transformed/lifecycle-process-2.8.7/AndroidManifest.xml:30:17-78
+82                android:value="androidx.startup" />
+82-->[androidx.lifecycle:lifecycle-process:2.8.7] /home/qed/.gradle/caches/8.11.1/transforms/03d2d127a3867e3b8734821d05495128/transformed/lifecycle-process-2.8.7/AndroidManifest.xml:31:17-49
+83            <meta-data
+83-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qed/.gradle/caches/8.11.1/transforms/7c60dfdf6ec1046244923a00e27af3ef/transformed/profileinstaller-1.3.1/AndroidManifest.xml:29:13-31:52
+84                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
+84-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qed/.gradle/caches/8.11.1/transforms/7c60dfdf6ec1046244923a00e27af3ef/transformed/profileinstaller-1.3.1/AndroidManifest.xml:30:17-85
+85                android:value="androidx.startup" />
+85-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qed/.gradle/caches/8.11.1/transforms/7c60dfdf6ec1046244923a00e27af3ef/transformed/profileinstaller-1.3.1/AndroidManifest.xml:31:17-49
+86        </provider>
+87
+88        <receiver
+88-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qed/.gradle/caches/8.11.1/transforms/7c60dfdf6ec1046244923a00e27af3ef/transformed/profileinstaller-1.3.1/AndroidManifest.xml:34:9-52:20
+89            android:name="androidx.profileinstaller.ProfileInstallReceiver"
+89-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qed/.gradle/caches/8.11.1/transforms/7c60dfdf6ec1046244923a00e27af3ef/transformed/profileinstaller-1.3.1/AndroidManifest.xml:35:13-76
+90            android:directBootAware="false"
+90-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qed/.gradle/caches/8.11.1/transforms/7c60dfdf6ec1046244923a00e27af3ef/transformed/profileinstaller-1.3.1/AndroidManifest.xml:36:13-44
+91            android:enabled="true"
+91-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qed/.gradle/caches/8.11.1/transforms/7c60dfdf6ec1046244923a00e27af3ef/transformed/profileinstaller-1.3.1/AndroidManifest.xml:37:13-35
+92            android:exported="true"
+92-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qed/.gradle/caches/8.11.1/transforms/7c60dfdf6ec1046244923a00e27af3ef/transformed/profileinstaller-1.3.1/AndroidManifest.xml:38:13-36
+93            android:permission="android.permission.DUMP" >
+93-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qed/.gradle/caches/8.11.1/transforms/7c60dfdf6ec1046244923a00e27af3ef/transformed/profileinstaller-1.3.1/AndroidManifest.xml:39:13-57
+94            <intent-filter>
+94-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qed/.gradle/caches/8.11.1/transforms/7c60dfdf6ec1046244923a00e27af3ef/transformed/profileinstaller-1.3.1/AndroidManifest.xml:40:13-42:29
+95                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
+95-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qed/.gradle/caches/8.11.1/transforms/7c60dfdf6ec1046244923a00e27af3ef/transformed/profileinstaller-1.3.1/AndroidManifest.xml:41:17-91
+95-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qed/.gradle/caches/8.11.1/transforms/7c60dfdf6ec1046244923a00e27af3ef/transformed/profileinstaller-1.3.1/AndroidManifest.xml:41:25-88
+96            </intent-filter>
+97            <intent-filter>
+97-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qed/.gradle/caches/8.11.1/transforms/7c60dfdf6ec1046244923a00e27af3ef/transformed/profileinstaller-1.3.1/AndroidManifest.xml:43:13-45:29
+98                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
+98-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qed/.gradle/caches/8.11.1/transforms/7c60dfdf6ec1046244923a00e27af3ef/transformed/profileinstaller-1.3.1/AndroidManifest.xml:44:17-85
+98-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qed/.gradle/caches/8.11.1/transforms/7c60dfdf6ec1046244923a00e27af3ef/transformed/profileinstaller-1.3.1/AndroidManifest.xml:44:25-82
+99            </intent-filter>
+100            <intent-filter>
+100-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qed/.gradle/caches/8.11.1/transforms/7c60dfdf6ec1046244923a00e27af3ef/transformed/profileinstaller-1.3.1/AndroidManifest.xml:46:13-48:29
+101                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
+101-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qed/.gradle/caches/8.11.1/transforms/7c60dfdf6ec1046244923a00e27af3ef/transformed/profileinstaller-1.3.1/AndroidManifest.xml:47:17-88
+101-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qed/.gradle/caches/8.11.1/transforms/7c60dfdf6ec1046244923a00e27af3ef/transformed/profileinstaller-1.3.1/AndroidManifest.xml:47:25-85
+102            </intent-filter>
+103            <intent-filter>
+103-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qed/.gradle/caches/8.11.1/transforms/7c60dfdf6ec1046244923a00e27af3ef/transformed/profileinstaller-1.3.1/AndroidManifest.xml:49:13-51:29
+104                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
+104-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qed/.gradle/caches/8.11.1/transforms/7c60dfdf6ec1046244923a00e27af3ef/transformed/profileinstaller-1.3.1/AndroidManifest.xml:50:17-95
+104-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/qed/.gradle/caches/8.11.1/transforms/7c60dfdf6ec1046244923a00e27af3ef/transformed/profileinstaller-1.3.1/AndroidManifest.xml:50:25-92
+105            </intent-filter>
+106        </receiver>
+107    </application>
+108
+109</manifest>

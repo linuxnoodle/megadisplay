@@ -1,7 +1,7 @@
 [video]
 width = 2800
 height = 1752
-fps = 60
+fps = 0
 bitrate_kbps = 8000
 encode_scale = 0.75
 refresh_hz = 120

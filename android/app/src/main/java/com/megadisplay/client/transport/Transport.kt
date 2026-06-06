@@ -9,6 +9,7 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.ReadableByteChannel
 import java.nio.channels.WritableByteChannel
+import java.util.ArrayDeque
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.ReentrantLock
 
@@ -24,11 +25,7 @@ abstract class Transport(
 
     private val sendLock = ReentrantLock()
     private val sendCondition = sendLock.newCondition()
-    private var sendBuffer: ByteBuffer =
-        ByteBuffer.allocate(Protocol.SEND_BUFFER_SIZE).order(ByteOrder.LITTLE_ENDIAN)
-    private var sendingBuffer: ByteBuffer =
-        ByteBuffer.allocate(Protocol.SEND_BUFFER_SIZE).order(ByteOrder.LITTLE_ENDIAN)
-    @Volatile private var pendingSend: Boolean = false
+    private val sendQueue = ArrayDeque<ByteArray>()
 
     private val readBuffer = ByteBuffer.allocateDirect(65536)
     init {
@@ -96,14 +93,7 @@ abstract class Transport(
     fun send(data: ByteArray) {
         sendLock.lock()
         try {
-            while (pendingSend && running) {
-                sendCondition.await()
-            }
-            sendBuffer.clear()
-            sendBuffer.putInt(data.size)
-            sendBuffer.put(data)
-            sendBuffer.flip()
-            pendingSend = true
+            sendQueue.addLast(data)
             sendCondition.signal()
         } finally {
             sendLock.unlock()
@@ -111,26 +101,32 @@ abstract class Transport(
     }
 
     private fun sendLoop() {
-        val localBuf = sendingBuffer
         while (running) {
+            val batch = mutableListOf<ByteArray>()
             sendLock.lock()
             try {
-                while (!pendingSend && running) {
+                while (sendQueue.isEmpty() && running) {
                     sendCondition.await()
                 }
                 if (!running) break
-                localBuf.clear()
-                localBuf.put(sendBuffer)
-                localBuf.flip()
-                pendingSend = false
-                sendCondition.signal()
+                // Drain everything currently queued into one write
+                while (!sendQueue.isEmpty()) {
+                    batch.add(sendQueue.removeFirst())
+                }
             } finally {
                 sendLock.unlock()
             }
 
             try {
-                while (localBuf.hasRemaining()) {
-                    writeChannel.write(localBuf)
+                val totalSize = batch.sumOf { 4 + it.size }
+                val framed = ByteBuffer.allocate(totalSize).order(ByteOrder.LITTLE_ENDIAN)
+                for (pkt in batch) {
+                    framed.putInt(pkt.size)
+                    framed.put(pkt)
+                }
+                framed.flip()
+                while (framed.hasRemaining()) {
+                    writeChannel.write(framed)
                 }
             } catch (e: Exception) {
                 onError?.invoke(e)

@@ -21,6 +21,7 @@ clap = { version = "4", features = ["derive"] }
 toml = "0.8"
 wayland-client = { version = "0.31", optional = true }
 wayland-protocols-wlr = { version = "0.3", features = ["client"], optional = true }
+wayland-protocols = { version = "0.31", features = ["client", "unstable"], optional = true }
 libc = { version = "0.2", optional = true }
 evdev = { version = "0.13", optional = true }
 lz4_flex = "0.11"
@@ -29,7 +30,7 @@ tracing-chrome = "0.7.2"
 [features]
 default = ["video-encode", "wayland", "input-inject"]
 video-encode = []
-wayland = ["dep:wayland-client", "dep:wayland-protocols-wlr", "dep:libc"]
+wayland = ["dep:wayland-client", "dep:wayland-protocols-wlr", "dep:wayland-protocols", "dep:libc"]
 input-inject = ["dep:evdev", "dep:libc"]
 
 [[test]]

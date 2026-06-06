@@ -240,7 +240,9 @@ fn run_session<R: transport::TransportRead + 'static, W: transport::TransportWri
     let mut fragment_writer = transport::FragmentWriter::new();
     let mut configured = false;
     let initial_cfg = config.lock().unwrap().clone();
-    let frame_interval = Duration::from_secs_f64(1.0 / initial_cfg.video.fps as f64);
+    let poll_interval = Duration::from_millis(50);
+    #[allow(unused_assignments)]
+    let mut cached_pen_cursor = false;
     let mut last_keepalive = Instant::now();
     let keepalive_interval = Duration::from_secs(1);
 
@@ -251,6 +253,7 @@ fn run_session<R: transport::TransportRead + 'static, W: transport::TransportWri
 
         {
             let current_cfg = config.lock().unwrap();
+            cached_pen_cursor = current_cfg.input.pen_cursor;
             if current_cfg.video.width != initial_cfg.video.width
                 || current_cfg.video.height != initial_cfg.video.height
                 || current_cfg.video.refresh_hz != initial_cfg.video.refresh_hz
@@ -266,7 +269,7 @@ fn run_session<R: transport::TransportRead + 'static, W: transport::TransportWri
             last_keepalive = Instant::now();
         }
 
-        match rx_incoming.recv_timeout(frame_interval.max(Duration::from_millis(50))) {
+        match rx_incoming.recv_timeout(poll_interval) {
             Ok((data_type, payload)) => match data_type {
                 DataType::Configure => {
                     info!("Received Configure ({} bytes)", payload.len());
@@ -287,9 +290,8 @@ fn run_session<R: transport::TransportRead + 'static, W: transport::TransportWri
                         }
                 }
                 DataType::Pen => {
-                    let pen_cursor = config.lock().unwrap().input.pen_cursor;
                     if let Some(ref mut emitter) = input_emitter
-                        && let Err(e) = emitter.process_pen(&payload, pen_cursor) {
+                        && let Err(e) = emitter.process_pen(&payload, cached_pen_cursor) {
                             warn!("Pen: {}", e);
                         }
                 }
@@ -316,6 +318,15 @@ fn run_session<R: transport::TransportRead + 'static, W: transport::TransportWri
                     }
                 }
                 DataType::State => {}
+                DataType::LatencyReport => {
+                    if payload.len() >= 4 {
+                        let ms = f32::from_le_bytes([
+                            payload[0], payload[1], payload[2], payload[3],
+                        ]);
+                        let mut s = stats.lock().unwrap();
+                        s.input_latency_ms = ms;
+                    }
+                }
                 DataType::Command => {
                     if let Ok(json) = serde_json::from_str::<serde_json::Value>(
                         &String::from_utf8_lossy(&payload)
@@ -466,9 +477,12 @@ fn video_capture_loop(
 
         // Move buffer to encode thread, get a recycled one back
         let frame_data = std::mem::take(&mut frame_buf);
-        match tx_frame.send((frame_data, stride, wait_ms, copy_ms)) {
+        match tx_frame.try_send((frame_data, stride, wait_ms, copy_ms)) {
             Ok(()) => {}
-            Err(_) => break,
+            Err(mpsc::TrySendError::Full((data, _, _, _))) => {
+                frame_buf = data;
+            }
+            Err(mpsc::TrySendError::Disconnected(_)) => break,
         }
 
         // Try to reclaim a recycled buffer from the pool
@@ -523,11 +537,20 @@ fn encode_loop(
             break;
         }
 
-        let (frame_data, stride, wait_ms, copy_ms) = match rx_frame.recv_timeout(Duration::from_millis(100)) {
+        let (mut frame_data, mut stride, mut wait_ms, mut copy_ms) = match rx_frame.recv_timeout(Duration::from_millis(100)) {
             Ok(d) => d,
             Err(mpsc::RecvTimeoutError::Timeout) => continue,
             Err(mpsc::RecvTimeoutError::Disconnected) => break,
         };
+
+        // Drain stale frames — keep only the most recent
+        while let Ok((newer_data, newer_stride, newer_wait, newer_copy)) = rx_frame.try_recv() {
+            let _ = tx_pool.send(frame_data);
+            frame_data = newer_data;
+            stride = newer_stride;
+            wait_ms = newer_wait;
+            copy_ms = newer_copy;
+        }
 
         let encode_start = Instant::now();
 
@@ -537,28 +560,29 @@ fn encode_loop(
             let new_enc_w = ((cfg.video.width as f32 * cfg.video.encode_scale) as u32).max(2) & !1;
             let new_enc_h = ((cfg.video.height as f32 * cfg.video.encode_scale) as u32).max(2) & !1;
 
+            let effective_fps = if cfg.video.fps > 0 { cfg.video.fps } else { cfg.video.refresh_hz };
             let need_reconfig = encoder.is_none()
                 || new_enc_w != cur_enc_w
                 || new_enc_h != cur_enc_h
-                || cfg.video.fps != cur_fps
+                || effective_fps != cur_fps
                 || cfg.video.bitrate_kbps != cur_bitrate
                 || cfg.video.encoder != cur_encoder_type;
 
             if need_reconfig && cfg.video.bitrate_kbps > 0 {
                 info!(
-                    "Configuring encoder: {}x{} @ {}fps, {}kbps, encoder={}",
-                    new_enc_w, new_enc_h, cfg.video.fps, cfg.video.bitrate_kbps, cfg.video.encoder
+                    "Configuring encoder: {}x{} @ {}fps (fps={}, refresh_hz={}), {}kbps, encoder={}",
+                    new_enc_w, new_enc_h, effective_fps, cfg.video.fps, cfg.video.refresh_hz,
+                    cfg.video.bitrate_kbps, cfg.video.encoder
                 );
                 match video::VideoEncoder::new(capture_width, capture_height, new_enc_w, new_enc_h, cfg.video.encoder.clone()) {
                     Ok(mut e) => {
-                        let actual_fps = if cfg.video.fps > 0 { cfg.video.fps } else { cfg.video.refresh_hz };
-                        if let Err(e) = e.start(cfg.video.bitrate_kbps, actual_fps) {
+                        if let Err(e) = e.start(cfg.video.bitrate_kbps, effective_fps) {
                             error!("Encoder start failed: {}", e);
                         } else {
                             encoder = Some(e);
                             cur_enc_w = new_enc_w;
                             cur_enc_h = new_enc_h;
-                            cur_fps = cfg.video.fps;
+                            cur_fps = effective_fps;
                             cur_bitrate = cfg.video.bitrate_kbps;
                             cur_encoder_type = cfg.video.encoder.clone();
                         }
@@ -628,16 +652,18 @@ fn encode_loop(
             let cfg = config.lock().unwrap();
             if cfg.video.auto_bitrate {
                 let drop_rate = auto_br_drops as f32 / auto_br_frames as f32;
-                let frame_budget = 1000.0 / cfg.video.fps as f32;
+                let effective_fps = if cfg.video.fps > 0 { cfg.video.fps } else { cfg.video.refresh_hz };
+                let frame_budget = 1000.0 / effective_fps.max(1) as f32;
                 let old_br = cfg.video.bitrate_kbps;
+                const MAX_BR: u32 = 50000;
                 let new_br = if drop_rate > 0.02 {
                     let decreased = (old_br as f32 * 0.8) as u32;
                     info!("auto-bitrate: drop_rate={:.1}%, {}kbps → {}kbps", drop_rate * 100.0, old_br, decreased);
                     decreased.max(500)
-                } else if drop_rate == 0.0 && h264_ms < frame_budget * 0.5 {
-                    let increased = old_br + 500;
+                } else if drop_rate == 0.0 && h264_ms < frame_budget * 0.5 && old_br < MAX_BR {
+                    let increased = (old_br + 500).min(MAX_BR);
                     info!("auto-bitrate: stable, {}kbps → {}kbps", old_br, increased);
-                    increased.min(50000)
+                    increased
                 } else {
                     old_br
                 };

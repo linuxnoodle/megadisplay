@@ -21,6 +21,7 @@ pub enum DataType {
     Error = 14,
     Keyboard = 15,
     Command = 16,
+    LatencyReport = 17,
 }
 
 impl DataType {
@@ -43,6 +44,7 @@ impl DataType {
             14 => Some(Self::Error),
             15 => Some(Self::Keyboard),
             16 => Some(Self::Command),
+            17 => Some(Self::LatencyReport),
             _ => None,
         }
     }
