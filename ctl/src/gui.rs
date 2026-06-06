@@ -3,6 +3,45 @@ use megadisplay_ctl_lib::{default_socket_path, send_request, DaemonStatus, Daemo
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
+const BW_SETTLE_MS: u64 = 2_000;
+const BW_MEASURE_MS: u64 = 2_500;
+const BW_DROP_THRESHOLD: f32 = 1.0;
+
+struct BandwidthTest {
+    saved_bitrate: u32,
+    saved_auto: bool,
+    step_kbps: u32,
+    max_kbps: u32,
+    current_bitrate: u32,
+    last_stable: u32,
+    phase: BwTestPhase,
+    phase_start: Instant,
+    frames_at_measure_start: u64,
+    drops_at_measure_start: u64,
+    log: Vec<BwTestEntry>,
+    result: Option<u32>,
+}
+
+struct BwTestEntry {
+    bitrate: u32,
+    drop_rate: f32,
+    achieved_kbps: f32,
+}
+
+impl Clone for BwTestEntry {
+    fn clone(&self) -> Self {
+        Self { bitrate: self.bitrate, drop_rate: self.drop_rate, achieved_kbps: self.achieved_kbps }
+    }
+}
+
+#[derive(Clone, PartialEq)]
+enum BwTestPhase {
+    Settling,
+    Measuring,
+    Restoring,
+    Done,
+}
+
 fn main() -> eframe::Result {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
@@ -17,7 +56,6 @@ fn main() -> eframe::Result {
     )
 }
 
-#[derive(Default)]
 struct MegaDisplayApp {
     socket_path: String,
     connected: bool,
@@ -37,6 +75,38 @@ struct MegaDisplayApp {
 
     last_frames: u64,
     last_stats_time: Option<Instant>,
+
+    bandwidth_test: Option<BandwidthTest>,
+    bw_test_min: u32,
+    bw_test_max: u32,
+    bw_test_step: u32,
+}
+
+impl Default for MegaDisplayApp {
+    fn default() -> Self {
+        Self {
+            socket_path: String::new(),
+            connected: false,
+            status: None,
+            stats: None,
+            config: None,
+            error: None,
+            fps_history: Vec::new(),
+            latency_history: Vec::new(),
+            bitrate_history: Vec::new(),
+            frametime_history: Vec::new(),
+            jitter_history: Vec::new(),
+            configured_bitrate: 0.0,
+            target_frame_ms: 0.0,
+            last_poll: None,
+            last_frames: 0,
+            last_stats_time: None,
+            bandwidth_test: None,
+            bw_test_min: 10_000,
+            bw_test_max: 50_000,
+            bw_test_step: 5_000,
+        }
+    }
 }
 
 impl MegaDisplayApp {
@@ -152,12 +222,359 @@ impl MegaDisplayApp {
             _ => self.error = Some("No response from daemon".into()),
         }
     }
+
+    fn start_bandwidth_test(&mut self) {
+        let cfg = match &self.config {
+            Some(c) => c.clone(),
+            None => return,
+        };
+        let saved_bitrate = cfg.video.bitrate_kbps;
+        let saved_auto = cfg.video.auto_bitrate;
+        let start = self.bw_test_min;
+        let step = self.bw_test_step.max(100);
+        let max = self.bw_test_max.max(start);
+
+        let test = BandwidthTest {
+            saved_bitrate,
+            saved_auto,
+            step_kbps: step,
+            max_kbps: max,
+            current_bitrate: start,
+            last_stable: 0,
+            phase: BwTestPhase::Settling,
+            phase_start: Instant::now(),
+            frames_at_measure_start: 0,
+            drops_at_measure_start: 0,
+            log: Vec::new(),
+            result: None,
+        };
+
+        self.send_request(&Request::SetVideo {
+            width: None, height: None, fps: None,
+            bitrate_kbps: Some(start),
+            encode_scale: None, refresh_hz: None,
+            auto_bitrate: Some(false),
+            encoder: None, enabled: None,
+        });
+        self.bandwidth_test = Some(test);
+    }
+
+    fn cancel_bandwidth_test(&mut self) {
+        if let Some(ref test) = self.bandwidth_test {
+            self.send_request(&Request::SetVideo {
+                width: None, height: None, fps: None,
+                bitrate_kbps: Some(test.saved_bitrate),
+                encode_scale: None, refresh_hz: None,
+                auto_bitrate: Some(test.saved_auto),
+                encoder: None, enabled: None,
+            });
+        }
+        self.bandwidth_test = None;
+    }
+
+    fn tick_bandwidth_test(&mut self) {
+        let now = Instant::now();
+
+        let phase = self.bandwidth_test.as_ref().unwrap().phase.clone();
+
+        match phase {
+            BwTestPhase::Settling => {
+                let test = self.bandwidth_test.as_ref().unwrap();
+                let elapsed = now.duration_since(test.phase_start).as_millis() as u64;
+                if elapsed >= BW_SETTLE_MS {
+                    let (frames, drops) = self.stats.as_ref()
+                        .map(|s| (s.frames_encoded, s.frames_dropped))
+                        .unwrap_or((0, 0));
+                    let test = self.bandwidth_test.as_mut().unwrap();
+                    test.frames_at_measure_start = frames;
+                    test.drops_at_measure_start = drops;
+                    test.phase = BwTestPhase::Measuring;
+                    test.phase_start = now;
+                }
+            }
+            BwTestPhase::Measuring => {
+                let elapsed = {
+                    let test = self.bandwidth_test.as_ref().unwrap();
+                    now.duration_since(test.phase_start).as_millis() as u64
+                };
+                if elapsed < BW_MEASURE_MS {
+                    return;
+                }
+
+                let stats = match &self.stats {
+                    Some(s) => s.clone(),
+                    None => return,
+                };
+
+                let (current_bitrate, saved_br, saved_auto, test_step, test_max) = {
+                    let test = self.bandwidth_test.as_ref().unwrap();
+                    (
+                        test.current_bitrate,
+                        test.saved_bitrate,
+                        test.saved_auto,
+                        test.step_kbps,
+                        test.max_kbps,
+                    )
+                };
+                let (frames_start, drops_start) = {
+                    let test = self.bandwidth_test.as_ref().unwrap();
+                    (test.frames_at_measure_start, test.drops_at_measure_start)
+                };
+
+                let frame_delta = stats.frames_encoded - frames_start;
+                let drop_delta = stats.frames_dropped - drops_start;
+                let total = frame_delta + drop_delta;
+                let drop_rate = if total > 0 {
+                    drop_delta as f32 / total as f32 * 100.0
+                } else { 0.0 };
+                let achieved_kbps = if stats.frame_total_ms > 0.0 {
+                    (stats.nal_bytes as f32 * 8.0) / 1000.0 * (1000.0 / stats.frame_total_ms)
+                } else { 0.0 };
+
+                let stable = drop_rate < BW_DROP_THRESHOLD;
+                let at_max = current_bitrate >= test_max;
+
+                {
+                    let test = self.bandwidth_test.as_mut().unwrap();
+                    test.log.push(BwTestEntry {
+                        bitrate: current_bitrate,
+                        drop_rate,
+                        achieved_kbps,
+                    });
+                    if stable {
+                        test.last_stable = current_bitrate;
+                    }
+                }
+
+                if stable && !at_max {
+                    let next_br = (current_bitrate + test_step).min(test_max);
+                    {
+                        let test = self.bandwidth_test.as_mut().unwrap();
+                        test.current_bitrate = next_br;
+                        test.phase = BwTestPhase::Settling;
+                        test.phase_start = now;
+                    }
+                    self.send_request(&Request::SetVideo {
+                        width: None, height: None, fps: None,
+                        bitrate_kbps: Some(next_br),
+                        encode_scale: None, refresh_hz: None,
+                        auto_bitrate: Some(false),
+                        encoder: None, enabled: None,
+                    });
+                } else {
+                    {
+                        let test = self.bandwidth_test.as_mut().unwrap();
+                        test.result = Some(test.last_stable);
+                        test.phase = BwTestPhase::Restoring;
+                        test.phase_start = now;
+                    }
+                    self.send_request(&Request::SetVideo {
+                        width: None, height: None, fps: None,
+                        bitrate_kbps: Some(saved_br),
+                        encode_scale: None, refresh_hz: None,
+                        auto_bitrate: Some(saved_auto),
+                        encoder: None, enabled: None,
+                    });
+                }
+            }
+            BwTestPhase::Restoring => {
+                let test = self.bandwidth_test.as_ref().unwrap();
+                let elapsed = now.duration_since(test.phase_start).as_millis() as u64;
+                if elapsed >= 1_000 {
+                    let test = self.bandwidth_test.as_mut().unwrap();
+                    test.phase = BwTestPhase::Done;
+                }
+            }
+            BwTestPhase::Done => {}
+        }
+    }
+
+    fn render_bandwidth_test_ui(&mut self, ui: &mut egui::Ui, cfg: &mut DaemonConfig) {
+        enum BwUi {
+            Idle,
+            Running { current_bitrate: u32, phase: BwTestPhase },
+            Done { result: Option<u32> },
+        }
+
+        let ui_state = match &self.bandwidth_test {
+            None => BwUi::Idle,
+            Some(t) if t.phase != BwTestPhase::Done => BwUi::Running {
+                current_bitrate: t.current_bitrate,
+                phase: t.phase.clone(),
+            },
+            Some(t) => BwUi::Done {
+                result: t.result,
+            },
+        };
+
+        match ui_state {
+            BwUi::Idle => {
+                let connected = self.status.as_ref().is_some_and(|s| s.connected);
+                egui::Grid::new("bw_test_cfg")
+                    .num_columns(2)
+                    .spacing([8.0, 4.0])
+                    .show(ui, |ui| {
+                        ui.label("Bandwidth test:");
+                        ui.horizontal(|ui| {
+                            ui.add(
+                                egui::DragValue::new(&mut self.bw_test_min)
+                                    .range(500..=100_000)
+                                    .suffix(" kbps"),
+                            );
+                            ui.label("to");
+                            ui.add(
+                                egui::DragValue::new(&mut self.bw_test_max)
+                                    .range(500..=100_000)
+                                    .suffix(" kbps"),
+                            );
+                            ui.label("step");
+                            ui.add(
+                                egui::DragValue::new(&mut self.bw_test_step)
+                                    .range(100..=20_000)
+                                    .suffix(" kbps"),
+                            );
+                            if ui.add_enabled(connected, egui::Button::new("Test"))
+                                .on_hover_text(
+                                    "Sweeps bitrate from min to max in step increments.\n\
+                                     Measures frame drops at each level to find the\n\
+                                     maximum stable bitrate for auto-bitrate.")
+                                .clicked()
+                            {
+                                self.start_bandwidth_test();
+                            }
+                        });
+                        ui.end_row();
+                    });
+            }
+            BwUi::Running { current_bitrate, phase } => {
+                ui.horizontal(|ui| {
+                    ui.label("Bandwidth test:");
+                    let phase_label = match phase {
+                        BwTestPhase::Settling => "settling",
+                        BwTestPhase::Measuring => "measuring",
+                        _ => "",
+                    };
+                    ui.label(
+                        egui::RichText::new(format!(
+                            "{} kbps ({})\u{2026}",
+                            current_bitrate, phase_label
+                        ))
+                        .color(egui::Color32::from_rgb(100, 180, 255)),
+                    );
+                    if ui.button("Cancel").clicked() {
+                        self.cancel_bandwidth_test();
+                    }
+                });
+            }
+            BwUi::Done { result } => {
+                ui.horizontal(|ui| {
+                    ui.label("Bandwidth test:");
+                    if let Some(max) = result {
+                        if max > 0 {
+                            ui.label(
+                                egui::RichText::new(format!("Max stable: {} kbps", max))
+                                    .color(egui::Color32::from_rgb(80, 200, 120))
+                                    .strong(),
+                            );
+                            if ui.button("Apply + Auto").clicked() {
+                                cfg.video.bitrate_kbps = max;
+                                cfg.video.auto_bitrate = true;
+                                self.send_and_reload(Request::SetVideo {
+                                    width: None,
+                                    height: None,
+                                    fps: None,
+                                    bitrate_kbps: Some(max),
+                                    encode_scale: None,
+                                    refresh_hz: None,
+                                    auto_bitrate: Some(true),
+                                    encoder: None,
+                                    enabled: None,
+                                });
+                                self.bandwidth_test = None;
+                            }
+                            if ui.button("Apply bitrate").clicked() {
+                                cfg.video.bitrate_kbps = max;
+                                self.send_and_reload(Request::SetVideo {
+                                    width: None,
+                                    height: None,
+                                    fps: None,
+                                    bitrate_kbps: Some(max),
+                                    encode_scale: None,
+                                    refresh_hz: None,
+                                    auto_bitrate: None,
+                                    encoder: None,
+                                    enabled: None,
+                                });
+                                self.bandwidth_test = None;
+                            }
+                        } else {
+                            ui.label(
+                                egui::RichText::new("No stable bitrate found")
+                                    .color(egui::Color32::from_rgb(255, 140, 80)),
+                            );
+                        }
+                        if ui.button("Dismiss").clicked() {
+                            self.bandwidth_test = None;
+                        }
+                    }
+                });
+            }
+        }
+
+        // Show test log
+        let log_to_show = self.bandwidth_test.as_ref()
+            .filter(|t| !t.log.is_empty())
+            .map(|t| t.log.clone());
+        if let Some(log) = log_to_show {
+            ui.add_space(2.0);
+            egui::Grid::new("bw_log")
+                .num_columns(3)
+                .spacing([16.0, 2.0])
+                .striped(true)
+                .show(ui, |ui| {
+                    ui.label(egui::RichText::new("Bitrate").weak().small());
+                    ui.label(egui::RichText::new("Drop rate").weak().small());
+                    ui.label(egui::RichText::new("Achieved").weak().small());
+                    ui.end_row();
+                    for entry in &log {
+                        let unstable = entry.drop_rate >= BW_DROP_THRESHOLD;
+                        let color = if unstable {
+                            egui::Color32::from_rgb(255, 100, 80)
+                        } else {
+                            egui::Color32::from_rgb(150, 200, 150)
+                        };
+                        ui.label(
+                            egui::RichText::new(format!("{} k", entry.bitrate)).small(),
+                        );
+                        ui.colored_label(
+                            color,
+                            egui::RichText::new(format!("{:.1}%", entry.drop_rate)).small(),
+                        );
+                        ui.label(
+                            egui::RichText::new(format!("{:.0} kbps", entry.achieved_kbps))
+                                .small(),
+                        );
+                        ui.end_row();
+                    }
+                });
+        }
+    }
 }
 
 impl eframe::App for MegaDisplayApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        ctx.request_repaint_after(Duration::from_millis(500));
+        let test_active = self.bandwidth_test.is_some()
+            && self.bandwidth_test.as_ref().unwrap().phase != BwTestPhase::Done;
+        let poll_ms = if test_active { 250 } else { 500 };
+        ctx.request_repaint_after(Duration::from_millis(poll_ms));
+        if test_active {
+            self.last_poll = None;
+        }
         self.poll();
+
+        if test_active {
+            self.tick_bandwidth_test();
+        }
 
         egui::TopBottomPanel::top("top").show(ctx, |ui| {
             ui.horizontal(|ui| {
@@ -513,7 +930,9 @@ impl eframe::App for MegaDisplayApp {
                 });
 
                 ui.add_space(4.0);
-                if ui.button("Apply").clicked() {
+                let bw_test_running = self.bandwidth_test.is_some()
+                    && self.bandwidth_test.as_ref().unwrap().phase != BwTestPhase::Done;
+                if ui.add_enabled(!bw_test_running, egui::Button::new("Apply")).clicked() {
                     let v = cfg.video.clone();
                     self.send_and_reload(Request::SetVideo {
                         width: Some(v.width),
@@ -527,6 +946,10 @@ impl eframe::App for MegaDisplayApp {
                         enabled: None,
                     });
                 }
+
+                // Bandwidth test section
+                ui.add_space(4.0);
+                self.render_bandwidth_test_ui(ui, &mut cfg);
 
                 ui.add_space(8.0);
                 ui.separator();
