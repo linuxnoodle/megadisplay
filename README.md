@@ -59,6 +59,7 @@ The driver is currently tested and verified on:
 With the recent integration of asynchronous hardware encoding via FFmpeg (VAAPI/NVENC/AMF), the daemon is now capable of driving the tablet at its native resolution (2800x1752) at 120Hz with virtually zero CPU overhead.
 
 The following pipeline latencies were measured over a continuous run at 2800x1752 @ 120Hz using the `megadisplayctl stats` command. Because the hardware encoder runs asynchronously, the total frame processing time is significantly less than the sum of its parts.
+However, it is still rather unstable... I'll fix it eventually.
 
 | Pipeline Stage | Average Delay (ms) |
 | --- | --- |

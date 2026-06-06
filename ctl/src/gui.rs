@@ -827,29 +827,48 @@ impl MegaDisplayApp {
 
         let target_mon_cloned = target_monitor.cloned();
 
-        if ui.button("Apply Positioning").clicked() {
-            let width = target_mon_cloned.as_ref().map(|m| m.width).unwrap_or(1920);
-            let height = target_mon_cloned.as_ref().map(|m| m.height).unwrap_or(1200);
-            let refresh = target_mon_cloned
-                .as_ref()
-                .map(|m| m.refresh_rate)
-                .unwrap_or(120.0);
-            let m_scale = target_mon_cloned.as_ref().map(|m| m.scale).unwrap_or(1.0);
+        ui.horizontal(|ui| {
+            if ui.button("Apply Positioning").clicked() {
+                let width = target_mon_cloned.as_ref().map(|m| m.width).unwrap_or(1920);
+                let height = target_mon_cloned.as_ref().map(|m| m.height).unwrap_or(1200);
+                let refresh = target_mon_cloned
+                    .as_ref()
+                    .map(|m| m.refresh_rate)
+                    .unwrap_or(120.0);
+                let m_scale = target_mon_cloned.as_ref().map(|m| m.scale).unwrap_or(1.0);
 
-            let arg = format!(
-                "{},{}x{}@{},{}x{},{}",
-                target_name, width, height, refresh, self.target_x, self.target_y, m_scale
-            );
+                let arg = format!(
+                    "{},{}x{}@{},{}x{},{}",
+                    target_name, width, height, refresh, self.target_x, self.target_y, m_scale
+                );
 
-            if let Err(e) = std::process::Command::new("hyprctl")
-                .args(&["keyword", "monitor", &arg])
-                .spawn()
-            {
-                self.error = Some(format!("Failed to run hyprctl: {}", e));
-            } else {
-                self.last_monitors_fetch = None;
+                if let Err(e) = std::process::Command::new("hyprctl")
+                    .args(&["keyword", "monitor", &arg])
+                    .spawn()
+                {
+                    self.error = Some(format!("Failed to run hyprctl: {}", e));
+                } else {
+                    self.last_monitors_fetch = None;
+                    
+                    // Run it a second time slightly delayed to fix waybar/hyprland race conditions
+                    let arg_clone = arg.clone();
+                    std::thread::spawn(move || {
+                        std::thread::sleep(std::time::Duration::from_millis(150));
+                        let _ = std::process::Command::new("hyprctl")
+                            .args(&["keyword", "monitor", &arg_clone])
+                            .spawn();
+                    });
+                }
             }
-        }
+
+            if ui.button("Save as Default").clicked() {
+                if let Some(mut cfg) = self.config.clone() {
+                    cfg.output.pos_x = Some(self.target_x);
+                    cfg.output.pos_y = Some(self.target_y);
+                    self.send_and_reload(megadisplay_ctl_lib::Request::SetConfig { config: cfg });
+                }
+            }
+        });
     }
 }
 

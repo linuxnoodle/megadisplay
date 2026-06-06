@@ -139,6 +139,8 @@ fn main() -> Result<()> {
                                 cfg.video.height,
                                 cfg.output.scale,
                                 cfg.video.refresh_hz,
+                                cfg.output.pos_x,
+                                cfg.output.pos_y,
                             ) {
                                 Ok(name) => {
                                     info!("Created/updated headless output: {}", name);
@@ -428,6 +430,8 @@ fn create_headless_output(
     height: u32,
     scale: f32,
     refresh_hz: u32,
+    pos_x: Option<i32>,
+    pos_y: Option<i32>,
 ) -> Result<String> {
     use std::process::Command;
     let mode = format!("{}x{}@{}", width, height, refresh_hz);
@@ -439,7 +443,9 @@ fn create_headless_output(
     let monitors: serde_json::Value =
         serde_json::from_str(&String::from_utf8_lossy(&monitors_out.stdout)).unwrap_or_default();
 
-    let pos = compute_position_below(&monitors, "DP-3", width);
+    let computed_pos = compute_position_below(&monitors, "DP-3", width);
+    let final_x = pos_x.unwrap_or(computed_pos.0);
+    let final_y = pos_y.unwrap_or(computed_pos.1);
 
     for monitor in monitors.as_array().unwrap_or(&vec![]) {
         if let Some(n) = monitor.get("name").and_then(|n| n.as_str())
@@ -450,7 +456,7 @@ fn create_headless_output(
                 .args([
                     "keyword",
                     "monitor",
-                    &format!("{},{},{}x{},{}", n, mode, pos.0, pos.1, scale),
+                    &format!("{},{},{}x{},{}", n, mode, final_x, final_y, scale),
                 ])
                 .output();
             return Ok(n.to_string());
@@ -469,7 +475,7 @@ fn create_headless_output(
         .args([
             "keyword",
             "monitor",
-            &format!("{},{},{}x{},{}", name, mode, pos.0, pos.1, scale),
+            &format!("{},{},{}x{},{}", name, mode, final_x, final_y, scale),
         ])
         .output();
     Ok(name.to_string())
@@ -534,7 +540,7 @@ fn video_capture_loop(
 
     // Pipeline: capture thread → bounded channel → encode thread
     // Double-buffered: pool channel recycles Vec buffers back to capture thread
-    let (tx_frame, rx_frame) = mpsc::sync_channel::<(Vec<u8>, u32, f32, f32)>(1);
+    let (tx_frame, rx_frame) = mpsc::sync_channel::<(crate::display::CaptureResult, Option<Vec<u8>>, f32, f32)>(1);
     let (tx_pool, rx_pool) = mpsc::sync_channel::<Vec<u8>>(1);
 
     let enc_config = Arc::clone(&config);
@@ -559,8 +565,8 @@ fn video_capture_loop(
             break;
         }
 
-        let stride = match display.capture_frame_bgra(&mut frame_buf) {
-            Ok(s) => s,
+        let capture_result = match display.capture_frame_bgra(&mut frame_buf) {
+            Ok(res) => res,
             Err(e) => {
                 warn!("Capture failed: {}", e);
                 std::thread::sleep(Duration::from_millis(16));
@@ -571,11 +577,18 @@ fn video_capture_loop(
         let (wait_ms, copy_ms) = display.last_capture_timing();
 
         // Move buffer to encode thread, get a recycled one back
-        let frame_data = std::mem::take(&mut frame_buf);
-        match tx_frame.try_send((frame_data, stride, wait_ms, copy_ms)) {
+        let frame_data = if matches!(capture_result, display::CaptureResult::Shm(_)) {
+            Some(std::mem::take(&mut frame_buf))
+        } else {
+            None
+        };
+
+        match tx_frame.try_send((capture_result, frame_data, wait_ms, copy_ms)) {
             Ok(()) => {}
-            Err(mpsc::TrySendError::Full((data, _, _, _))) => {
-                frame_buf = data;
+            Err(mpsc::TrySendError::Full((_, data, _, _))) => {
+                if let Some(d) = data {
+                    frame_buf = d;
+                }
             }
             Err(mpsc::TrySendError::Disconnected(_)) => break,
         }
@@ -601,7 +614,7 @@ fn video_capture_loop(
 
 #[allow(clippy::too_many_arguments)]
 fn encode_loop(
-    rx_frame: mpsc::Receiver<(Vec<u8>, u32, f32, f32)>,
+    rx_frame: mpsc::Receiver<(crate::display::CaptureResult, Option<Vec<u8>>, f32, f32)>,
     tx_pool: mpsc::SyncSender<Vec<u8>>,
     config: Arc<Mutex<Config>>,
     tx: mpsc::SyncSender<Vec<u8>>,
@@ -632,7 +645,7 @@ fn encode_loop(
             break;
         }
 
-        let (mut frame_data, mut stride, mut wait_ms, mut copy_ms) =
+        let (mut capture_res, mut frame_data, mut wait_ms, mut copy_ms) =
             match rx_frame.recv_timeout(Duration::from_millis(100)) {
                 Ok(d) => d,
                 Err(mpsc::RecvTimeoutError::Timeout) => continue,
@@ -640,10 +653,14 @@ fn encode_loop(
             };
 
         // Drain stale frames — keep only the most recent
-        while let Ok((newer_data, newer_stride, newer_wait, newer_copy)) = rx_frame.try_recv() {
-            let _ = tx_pool.send(frame_data);
+        while let Ok((newer_res, newer_data, newer_wait, newer_copy)) = rx_frame.try_recv() {
+            if let Some(d) = frame_data {
+                let _ = tx_pool.send(d);
+            } else if let crate::display::CaptureResult::DmaBuf(frame) = capture_res {
+                unsafe { libc::close(frame.fd); }
+            }
+            capture_res = newer_res;
             frame_data = newer_data;
-            stride = newer_stride;
             wait_ms = newer_wait;
             copy_ms = newer_copy;
         }
@@ -704,7 +721,11 @@ fn encode_loop(
         }
 
         let Some(encoder) = encoder.as_mut() else {
-            let _ = tx_pool.send(frame_data);
+            if let Some(d) = frame_data {
+                let _ = tx_pool.send(d);
+            } else if let crate::display::CaptureResult::DmaBuf(frame) = capture_res {
+                unsafe { libc::close(frame.fd); }
+            }
             continue;
         };
 
@@ -712,11 +733,15 @@ fn encode_loop(
             encoder.request_idr();
         }
 
-        let nal_data = match encoder.encode_bgra(&frame_data, stride) {
+        let nal_data = match encoder.encode_bgra(&capture_res) {
             Ok(d) => d,
             Err(e) => {
                 warn!("Encode failed: {}", e);
-                let _ = tx_pool.send(frame_data);
+                if let Some(d) = frame_data {
+                    let _ = tx_pool.send(d);
+                } else if let crate::display::CaptureResult::DmaBuf(frame) = capture_res {
+                    unsafe { libc::close(frame.fd); }
+                }
                 continue;
             }
         };
@@ -729,7 +754,15 @@ fn encode_loop(
         prev_encode_start = Some(encode_start);
 
         // Recycle the frame buffer back to capture thread
-        let _ = tx_pool.send(frame_data);
+        if let Some(d) = frame_data {
+            let _ = tx_pool.send(d);
+        } else if let crate::display::CaptureResult::DmaBuf(frame) = capture_res {
+            // Note: encoder.encode_bgra took ownership of the dup_fd and closed it inside allocator.alloc.
+            // But if it failed before allocating, we must close it.
+            // Wait, actually, gstreamer-allocators allocator.alloc takes the fd and owns it.
+            // If encode_bgra returns Ok, it consumed the fd.
+            // We should NOT close it here if encode_bgra succeeded!
+        }
 
         if !nal_data.is_empty() {
             let fragment = fragment_writer.build_frame_fragment(1, &nal_data);

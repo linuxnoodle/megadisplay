@@ -8,10 +8,10 @@ APPS_DIR    ?= $(PREFIX)/share/applications
 .PHONY: install uninstall build release clean
 
 build:
-	cargo build
+	cargo +stable build
 
 release:
-	cargo build --release
+	cargo +stable build --release
 
 install: release
 	@echo "Installing binaries..."

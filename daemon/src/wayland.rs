@@ -438,9 +438,8 @@ pub mod screencopy {
         shm_map: Option<ShmMapping>,
         shm_size: usize,
         // dmabuf path
-        gbm_bo: Option<GbmBo>,
-        dmabuf_buffer: Option<wl_buffer::WlBuffer>,
-        dmabuf_stride: u32,
+        dmabuf_pool: Vec<(GbmBo, wl_buffer::WlBuffer, u32, i32)>,
+        dmabuf_pool_idx: usize,
         use_dmabuf: bool,
         capture_width: u32,
         capture_height: u32,
@@ -624,9 +623,8 @@ pub mod screencopy {
                 shm_fd: None,
                 shm_map: None,
                 shm_size: 0,
-                gbm_bo: None,
-                dmabuf_buffer: None,
-                dmabuf_stride: 0,
+                dmabuf_pool: Vec::new(),
+                dmabuf_pool_idx: 0,
                 use_dmabuf: false,
                 capture_width: 0,
                 capture_height: 0,
@@ -644,7 +642,7 @@ pub mod screencopy {
         ///
         /// Prefers dmabuf (zero-copy GPU) when available; falls back to SHM.
         /// Returns (width, height, stride).
-        pub fn capture_frame(&mut self, buf: &mut Vec<u8>) -> Result<(u32, u32, u32)> {
+        pub fn capture_frame(&mut self, buf: &mut Vec<u8>) -> Result<crate::display::CaptureResult> {
             self.state.reset();
 
             let frame = self.screencopy_manager.capture_output(
@@ -656,8 +654,7 @@ pub mod screencopy {
 
             // Check if we can reuse existing buffers
             let dmabuf_ready = self.use_dmabuf
-                && self.gbm_bo.is_some()
-                && self.dmabuf_buffer.is_some()
+                && !self.dmabuf_pool.is_empty()
                 && self.capture_width > 0;
             let shm_ready = !self.use_dmabuf
                 && self.buffer.is_some()
@@ -710,7 +707,7 @@ pub mod screencopy {
                             );
                         }
                         Err(e) => {
-                            warn!("dmabuf setup failed ({:#}, falling back to SHM", e);
+                            warn!("dmabuf setup failed ({:#}), falling back to SHM", e);
                             self.use_dmabuf = false;
                             self.setup_shm(
                                 width,
@@ -744,8 +741,14 @@ pub mod screencopy {
             // COMMON PATH: copy frame to buffer, wait for ready.
             let copy_start_total = Instant::now();
 
+            let pool_idx = if self.use_dmabuf {
+                self.dmabuf_pool_idx
+            } else {
+                0
+            };
+
             if self.use_dmabuf {
-                let dmabuf_buf = self.dmabuf_buffer.as_ref().unwrap();
+                let dmabuf_buf = &self.dmabuf_pool[pool_idx].1;
                 frame.copy(dmabuf_buf);
             } else {
                 let buffer = self.buffer.as_ref().unwrap();
@@ -785,141 +788,128 @@ pub mod screencopy {
 
             let width = self.capture_width;
             let height = self.capture_height;
-            let stride;
 
-            // Copy pixel data to output buffer
             let copy_start = Instant::now();
 
             if self.use_dmabuf {
-                let gbm_bo = self.gbm_bo.as_ref().unwrap().0;
-                let mut map_stride: u32 = 0;
-                let mut map_data: *mut std::ffi::c_void = std::ptr::null_mut();
-                let bo_stride = self.dmabuf_stride;
-                let ptr = unsafe {
-                    gbm_bo_map(
-                        gbm_bo,
-                        0,
-                        0,
-                        width,
-                        height,
-                        GBM_BO_TRANSFER_READ,
-                        &mut map_stride,
-                        &mut map_data,
-                    )
-                };
-                if ptr.is_null() {
+                let (_, _, stride, fd) = self.dmabuf_pool[pool_idx];
+                
+                // Advance pool idx
+                self.dmabuf_pool_idx = (self.dmabuf_pool_idx + 1) % self.dmabuf_pool.len();
+                
+                // Dup fd for GStreamer
+                let dup_fd = unsafe { libc::dup(fd) };
+                if dup_fd < 0 {
                     frame.destroy();
-                    bail!("gbm_bo_map failed");
+                    bail!("Failed to dup dmabuf fd");
                 }
-                let actual_stride = if map_stride > 0 {
-                    map_stride
-                } else {
-                    bo_stride
-                };
-                stride = actual_stride;
-                let copy_size = (actual_stride as usize) * (height as usize);
-                buf.resize(copy_size, 0);
-                unsafe {
-                    std::ptr::copy_nonoverlapping(ptr as *const u8, buf.as_mut_ptr(), copy_size);
-                    gbm_bo_unmap(gbm_bo, map_data);
-                }
+
+                frame.destroy();
+                self.last_copy_ms = copy_start.elapsed().as_secs_f32() * 1000.0;
+                let _ = copy_start_total;
+                
+                Ok(crate::display::CaptureResult::DmaBuf(crate::display::DmaBufFrame {
+                    fd: dup_fd,
+                    width,
+                    height,
+                    stride,
+                    format: self.state.dmabuf_format,
+                }))
             } else {
-                stride = self.capture_stride;
+                let stride = self.capture_stride;
                 let shm_map = self.shm_map.as_ref().unwrap();
                 let src = shm_map.as_slice();
                 let copy_size = (stride as usize) * (height as usize);
                 buf.resize(copy_size, 0);
                 buf.copy_from_slice(&src[..copy_size]);
-            }
 
-            // Handle Y-invert if needed
-            if self.state.y_invert {
-                let row_len = stride as usize;
-                let h = height as usize;
-                for y in 0..(h / 2) {
-                    let (top, bot) = buf.split_at_mut((h - 1 - y) * row_len);
-                    let row_a = &mut top[y * row_len..(y + 1) * row_len];
-                    let row_b = &mut bot[..row_len];
-                    row_a.swap_with_slice(row_b);
+                // Handle Y-invert if needed
+                if self.state.y_invert {
+                    let row_len = stride as usize;
+                    let h = height as usize;
+                    for y in 0..(h / 2) {
+                        let (top, bot) = buf.split_at_mut((h - 1 - y) * row_len);
+                        let row_a = &mut top[y * row_len..(y + 1) * row_len];
+                        let row_b = &mut bot[..row_len];
+                        row_a.swap_with_slice(row_b);
+                    }
                 }
-            }
 
-            frame.destroy();
-            self.last_copy_ms = copy_start.elapsed().as_secs_f32() * 1000.0;
-            let _ = copy_start_total;
-            Ok((width, height, stride))
+                frame.destroy();
+                self.last_copy_ms = copy_start.elapsed().as_secs_f32() * 1000.0;
+                let _ = copy_start_total;
+                
+                Ok(crate::display::CaptureResult::Shm(stride))
+            }
         }
 
-        /// Set up dmabuf buffer for capturing.
+        /// Set up dmabuf buffer pool for capturing.
         fn setup_dmabuf(&mut self, width: u32, height: u32, format: u32) -> Result<()> {
             let dev = self.gbm_device.as_ref().unwrap().0;
 
-            // Create GBM BO (linear for CPU readback)
-            let bo = unsafe {
-                gbm_bo_create(
-                    dev,
-                    width,
-                    height,
-                    format,
-                    GBM_BO_USE_LINEAR | GBM_BO_USE_RENDERING,
-                )
-            };
-            if bo.is_null() {
-                bail!(
-                    "gbm_bo_create failed for {}x{} format=0x{:08X}",
-                    width,
-                    height,
-                    format
+            // Clear old pool
+            for (bo, buf, _, fd) in self.dmabuf_pool.drain(..) {
+                buf.destroy();
+                unsafe { 
+                    libc::close(fd);
+                    gbm_bo_destroy(bo.0); 
+                }
+            }
+
+            // Create 3 buffers for zero-copy rotation
+            for _ in 0..3 {
+                // We MUST use GBM_BO_USE_LINEAR here!
+                // Even though we aren't using CPU readback, we are pushing this buffer into GStreamer
+                // via `appsrc` using standard `video/x-raw` caps. GStreamer assumes `video/x-raw` dmabufs
+                // are linearly laid out in memory. If we use `GBM_BO_USE_RENDERING`, AMD driver applies
+                // DCC compression/tiling which causes visual corruption as vertical lines.
+                let bo = unsafe {
+                    gbm_bo_create(
+                        dev,
+                        width,
+                        height,
+                        format,
+                        GBM_BO_USE_LINEAR,
+                    )
+                };
+                if bo.is_null() {
+                    bail!("gbm_bo_create failed for pool");
+                }
+
+                let bo_stride = unsafe { gbm_bo_get_stride(bo) };
+                let dmabuf_fd = unsafe { gbm_bo_get_fd(bo) };
+                if dmabuf_fd < 0 {
+                    unsafe { gbm_bo_destroy(bo) };
+                    bail!("gbm_bo_get_fd failed");
+                }
+
+                let dmabuf_mgr = self.dmabuf_manager.as_ref().unwrap();
+                let params = dmabuf_mgr.create_params(&self.qh, ());
+                let modifier = unsafe { gbm_bo_get_modifier(bo) };
+                let borrowed_fd = unsafe { std::os::fd::BorrowedFd::borrow_raw(dmabuf_fd) };
+                
+                params.add(
+                    borrowed_fd,
+                    0,
+                    0,
+                    bo_stride,
+                    (modifier >> 32) as u32,
+                    (modifier & 0xFFFFFFFF) as u32,
                 );
+
+                let dmabuf_buffer = params.create_immed(
+                    width as i32,
+                    height as i32,
+                    format,
+                    zwp_linux_buffer_params_v1::Flags::empty(),
+                    &self.qh,
+                    (),
+                );
+
+                self.dmabuf_pool.push((GbmBo(bo), dmabuf_buffer, bo_stride, dmabuf_fd));
             }
 
-            let bo_stride = unsafe { gbm_bo_get_stride(bo) };
-            let dmabuf_fd = unsafe { gbm_bo_get_fd(bo) };
-            if dmabuf_fd < 0 {
-                unsafe { gbm_bo_destroy(bo) };
-                bail!("gbm_bo_get_fd failed");
-            }
-
-            // Create zwp_linux_buffer_params_v1
-            let dmabuf_mgr = self.dmabuf_manager.as_ref().unwrap();
-            let params = dmabuf_mgr.create_params(&self.qh, ());
-
-            // Add single plane (BGRA is always single-plane)
-            let modifier = unsafe { gbm_bo_get_modifier(bo) };
-            let borrowed_fd = unsafe { std::os::fd::BorrowedFd::borrow_raw(dmabuf_fd) };
-            params.add(
-                borrowed_fd,
-                0,                              // plane_idx
-                0,                              // offset
-                bo_stride,                      // stride
-                (modifier >> 32) as u32,        // modifier_hi
-                (modifier & 0xFFFFFFFF) as u32, // modifier_lo
-            );
-
-            // Create wl_buffer from params
-            let dmabuf_buffer = params.create_immed(
-                width as i32,
-                height as i32,
-                format,
-                zwp_linux_buffer_params_v1::Flags::empty(),
-                &self.qh,
-                (),
-            );
-
-            // Clean up old BO/buffer if any
-            if let Some(b) = self.dmabuf_buffer.take() {
-                b.destroy();
-            }
-            self.gbm_bo.take(); // dropped old BO
-
-            self.gbm_bo = Some(GbmBo(bo));
-            self.dmabuf_buffer = Some(dmabuf_buffer);
-            self.dmabuf_stride = bo_stride;
-
-            // Note: dmabuf_fd ownership is transferred to the compositor via the params.
-            // The compositor will dup it. We can close our copy.
-            unsafe { libc::close(dmabuf_fd) };
-
+            self.dmabuf_pool_idx = 0;
             Ok(())
         }
 
@@ -984,10 +974,10 @@ pub mod screencopy {
             if let Some(p) = self.pool.take() {
                 p.destroy();
             }
-            if let Some(b) = self.dmabuf_buffer.take() {
-                b.destroy();
+            for (bo, wl_buf, _, _) in self.dmabuf_pool.drain(..) {
+                wl_buf.destroy();
+                unsafe { gbm_bo_destroy(bo.0) };
             }
-            self.gbm_bo.take();
             self.shm_map.take();
             self.shm_fd.take();
             self.shm_size = 0;

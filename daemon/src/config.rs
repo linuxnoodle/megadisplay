@@ -56,6 +56,8 @@ fn default_true() -> bool {
 pub struct OutputConfig {
     pub create: bool,
     pub name: String,
+    pub pos_x: Option<i32>,
+    pub pos_y: Option<i32>,
     #[serde(default = "default_scale")]
     pub scale: f32,
 }
@@ -91,6 +93,8 @@ impl Default for Config {
             output: OutputConfig {
                 create: true,
                 name: "MEGADISPLAY".into(),
+                pos_x: None,
+                pos_y: None,
                 scale: 1.0,
             },
             ipc: IpcConfig { socket_path: None },

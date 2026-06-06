@@ -13,6 +13,19 @@ use tracing::{info, warn};
 #[cfg(feature = "wayland")]
 use crate::wayland::screencopy::WaylandCapture;
 
+pub struct DmaBufFrame {
+    pub fd: std::os::fd::RawFd,
+    pub width: u32,
+    pub height: u32,
+    pub stride: u32,
+    pub format: u32,
+}
+
+pub enum CaptureResult {
+    DmaBuf(DmaBufFrame),
+    Shm(u32),
+}
+
 pub struct VirtualDisplay {
     width: u32,
     height: u32,
@@ -71,18 +84,18 @@ impl VirtualDisplay {
         })
     }
 
-    /// Capture a BGRA frame. Returns the row stride in bytes.
+    /// Capture a BGRA frame. Returns the CaptureResult.
     #[tracing::instrument(skip_all)]
-    pub fn capture_frame_bgra(&mut self, buf: &mut Vec<u8>) -> Result<u32> {
+    pub fn capture_frame_bgra(&mut self, buf: &mut Vec<u8>) -> Result<CaptureResult> {
         #[cfg(feature = "wayland")]
         {
             if let Some(capture) = &mut self.capture {
                 match capture.capture_frame(buf) {
-                    Ok((_w, _h, stride)) => {
+                    Ok(res) => {
                         let (wait_ms, copy_ms) = capture.last_timing();
                         self.last_wait_ms = wait_ms;
                         self.last_copy_ms = copy_ms;
-                        return Ok(stride);
+                        return Ok(res);
                     }
                     Err(e) => {
                         warn!("Wayland capture error: {}, falling back to test pattern", e);
@@ -94,7 +107,7 @@ impl VirtualDisplay {
 
             if self.use_test_pattern {
                 self.test_pattern(buf);
-                return Ok(self.width * 4);
+                return Ok(CaptureResult::Shm(self.width * 4));
             }
         }
 
@@ -103,7 +116,7 @@ impl VirtualDisplay {
             self.test_pattern(buf);
         }
 
-        Ok(self.width * 4)
+        Ok(CaptureResult::Shm(self.width * 4))
     }
 
     pub fn last_capture_timing(&self) -> (f32, f32) {

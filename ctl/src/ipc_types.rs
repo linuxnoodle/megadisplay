@@ -99,6 +99,8 @@ fn default_true() -> bool {
 pub struct OutputConfig {
     pub create: bool,
     pub name: String,
+    pub pos_x: Option<i32>,
+    pub pos_y: Option<i32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
