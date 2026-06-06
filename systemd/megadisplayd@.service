@@ -5,12 +5,11 @@ After=graphical.target
 [Service]
 Type=simple
 User=%i
-ExecStart=/usr/bin/env megadisplayd
+ExecStart=/bin/sh -c 'export XDG_RUNTIME_DIR=/run/user/$$(id -u); export HYPRLAND_INSTANCE_SIGNATURE=$$(ls -t /run/user/$$(id -u)/hypr | head -n 1); exec /usr/local/bin/megadisplayd'
 Restart=on-failure
 RestartSec=3
 Environment=RUST_LOG=info
 Environment=WAYLAND_DISPLAY=wayland-1
-Environment=XDG_RUNTIME_DIR=/run/user/%U
 
 [Install]
 WantedBy=graphical.target

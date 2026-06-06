@@ -2,7 +2,7 @@
 Type=Application
 Name=MegaDisplay
 Comment=Control panel GUI for MegaDisplay tablet display
-Exec=/home/qed/.cargo/bin/megadisplayctl-gui
+Exec=megadisplayctl-gui
 Icon=video-display
 Categories=Utility;System;
 Terminal=false

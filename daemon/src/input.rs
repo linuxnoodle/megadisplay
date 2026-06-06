@@ -21,9 +21,7 @@ pub struct InputEmitter {
 
 impl InputEmitter {
     pub fn new(output_width: u32, output_height: u32) -> Result<Self> {
-        info!(
-            "Creating input emitter for {output_width}x{output_height}"
-        );
+        info!("Creating input emitter for {output_width}x{output_height}");
 
         #[cfg(feature = "input-inject")]
         {
@@ -123,7 +121,7 @@ impl InputEmitter {
         let tilt_raw = i16::from_le_bytes([payload[9], payload[10]]);
 
         // Removed the early return for !pen_cursor during hover.
-        // We now process all events but pass `pen_cursor` to emit() to control 
+        // We now process all events but pass `pen_cursor` to emit() to control
         // whether the cursor actually moves.
 
         let x = (x_raw as f32 / 32767.0) * self.output_width as f32;
@@ -165,7 +163,15 @@ impl InputEmitter {
                 let sin_tilt = tilt.sin();
                 let tilt_x = (sin_tilt * orientation.cos() * 9000.0) as i32;
                 let tilt_y = (sin_tilt * orientation.sin() * 9000.0) as i32;
-                if let Err(e) = inj.pen.emit(flags, x_raw, y_raw, pressure_raw, tilt_x, tilt_y, pen_cursor) {
+                if let Err(e) = inj.pen.emit(
+                    flags,
+                    x_raw,
+                    y_raw,
+                    pressure_raw,
+                    tilt_x,
+                    tilt_y,
+                    pen_cursor,
+                ) {
                     warn!("Pen injection error: {}", e);
                 }
             }
@@ -185,9 +191,10 @@ impl InputEmitter {
         #[cfg(feature = "input-inject")]
         {
             if let Some(inj) = &mut self.injector
-                && let Err(e) = inj.keyboard.emit(key_index, pressed) {
-                    warn!("Keyboard injection error: {}", e);
-                }
+                && let Err(e) = inj.keyboard.emit(key_index, pressed)
+            {
+                warn!("Keyboard injection error: {}", e);
+            }
         }
 
         Ok(())

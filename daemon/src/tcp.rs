@@ -5,7 +5,7 @@
 //! (or a test client) to connect.
 
 use anyhow::{Context, Result};
-use megadisplay_protocol::{build_handshake, parse_handshake, SUPPORTED_HOST_VERSIONS};
+use megadisplay_protocol::{SUPPORTED_HOST_VERSIONS, build_handshake, parse_handshake};
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::time::Duration;
@@ -57,12 +57,16 @@ impl TcpConnection {
 /// Listen on the given port and wait for a client to connect.
 pub fn listen_and_accept(port: u16) -> Result<TcpConnection> {
     let addr = format!("0.0.0.0:{}", port);
-    let listener = TcpListener::bind(&addr)
-        .context(format!("Failed to bind TCP listener on {}", addr))?;
+    let listener =
+        TcpListener::bind(&addr).context(format!("Failed to bind TCP listener on {}", addr))?;
 
-    info!("TCP transport listening on {} (waiting for connection...)", addr);
+    info!(
+        "TCP transport listening on {} (waiting for connection...)",
+        addr
+    );
 
-    let (stream, peer) = listener.accept()
+    let (stream, peer) = listener
+        .accept()
         .context("Failed to accept TCP connection")?;
 
     info!("TCP client connected from {}", peer);
@@ -71,12 +75,13 @@ pub fn listen_and_accept(port: u16) -> Result<TcpConnection> {
     stream.set_read_timeout(Some(Duration::from_secs(30)))?;
     stream.set_write_timeout(Some(Duration::from_secs(30)))?;
 
-    let writer_stream = stream.try_clone()
-        .context("Failed to clone TCP stream")?;
+    let writer_stream = stream.try_clone().context("Failed to clone TCP stream")?;
 
     Ok(TcpConnection {
         reader: TcpReader { stream },
-        writer: TcpWriter { stream: writer_stream },
+        writer: TcpWriter {
+            stream: writer_stream,
+        },
     })
 }
 

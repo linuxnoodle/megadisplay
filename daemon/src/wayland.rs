@@ -5,7 +5,7 @@
 
 #[cfg(feature = "wayland")]
 pub mod screencopy {
-    use anyhow::{bail, Context, Result};
+    use anyhow::{Context, Result, bail};
     use std::os::fd::{AsFd, AsRawFd, FromRawFd, OwnedFd};
     use std::time::{Duration, Instant};
     use tracing::{debug, info, warn};
@@ -15,11 +15,11 @@ pub mod screencopy {
         globals::registry_queue_init,
         protocol::{wl_buffer, wl_output, wl_registry, wl_shm, wl_shm_pool},
     };
+    use wayland_protocols::wp::linux_dmabuf::zv1::client::{
+        zwp_linux_buffer_params_v1, zwp_linux_dmabuf_v1,
+    };
     use wayland_protocols_wlr::screencopy::v1::client::{
         zwlr_screencopy_frame_v1, zwlr_screencopy_manager_v1,
-    };
-    use wayland_protocols::wp::linux_dmabuf::zv1::client::{
-        zwp_linux_dmabuf_v1, zwp_linux_buffer_params_v1,
     };
 
     // ── GBM FFI ────────────────────────────────────────────────────────────
@@ -30,8 +30,10 @@ pub mod screencopy {
         fn gbm_device_destroy(device: *mut std::ffi::c_void);
         fn gbm_bo_create(
             device: *mut std::ffi::c_void,
-            width: u32, height: u32,
-            format: u32, usage: u32,
+            width: u32,
+            height: u32,
+            format: u32,
+            usage: u32,
         ) -> *mut std::ffi::c_void;
         fn gbm_bo_destroy(bo: *mut std::ffi::c_void);
         fn gbm_bo_get_fd(bo: *mut std::ffi::c_void) -> libc::c_int;
@@ -39,7 +41,10 @@ pub mod screencopy {
         fn gbm_bo_get_modifier(bo: *mut std::ffi::c_void) -> u64;
         fn gbm_bo_map(
             bo: *mut std::ffi::c_void,
-            x: u32, y: u32, width: u32, height: u32,
+            x: u32,
+            y: u32,
+            width: u32,
+            height: u32,
             usage: u32,
             stride: *mut u32,
             map_data: *mut *mut std::ffi::c_void,
@@ -161,10 +166,16 @@ pub mod screencopy {
                     }
                 }
                 wl_output::Event::Description { ref description } => {
-                    debug!("wl_output Description event: global_id={} desc='{}'", data, description);
+                    debug!(
+                        "wl_output Description event: global_id={} desc='{}'",
+                        data, description
+                    );
                     if !description.is_empty() {
                         // Only insert if no Name was provided
-                        state.output_names.entry(*data).or_insert(description.clone());
+                        state
+                            .output_names
+                            .entry(*data)
+                            .or_insert(description.clone());
                     }
                 }
                 _ => {}
@@ -208,7 +219,6 @@ pub mod screencopy {
         }
     }
 
-
     impl Dispatch<zwlr_screencopy_manager_v1::ZwlrScreencopyManagerV1, ()> for CaptureState {
         fn event(
             _state: &mut Self,
@@ -233,7 +243,12 @@ pub mod screencopy {
             use zwlr_screencopy_frame_v1::Event;
 
             match event {
-                Event::Buffer { format, width, height, stride } => {
+                Event::Buffer {
+                    format,
+                    width,
+                    height,
+                    stride,
+                } => {
                     let fmt_val = match format {
                         wayland_client::WEnum::Value(v) => v as u32,
                         wayland_client::WEnum::Unknown(u) => u,
@@ -248,7 +263,11 @@ pub mod screencopy {
                         fmt_val, width, height, stride
                     );
                 }
-                Event::LinuxDmabuf { format, width, height } => {
+                Event::LinuxDmabuf {
+                    format,
+                    width,
+                    height,
+                } => {
                     state.dmabuf_format = format;
                     state.dmabuf_width = width;
                     state.dmabuf_height = height;
@@ -277,7 +296,7 @@ pub mod screencopy {
                     state.frame_failed = true;
                     warn!("screencopy frame failed");
                 }
-                Event::Damage { .. } => { }
+                Event::Damage { .. } => {}
                 _ => {}
             }
         }
@@ -330,7 +349,10 @@ pub mod screencopy {
             }
             // Pin pages in RAM to avoid page-fault spikes on copy (~1ms→6ms jitter without this)
             unsafe { libc::mlock(ptr, size) };
-            Ok(Self { ptr: ptr as *mut u8, size })
+            Ok(Self {
+                ptr: ptr as *mut u8,
+                size,
+            })
         }
 
         fn as_slice(&self) -> &[u8] {
@@ -349,13 +371,7 @@ pub mod screencopy {
 
     /// Creates a memfd and truncates it to the given size.
     fn create_memfd(size: usize) -> Result<OwnedFd> {
-        let fd = unsafe {
-            libc::syscall(
-                libc::SYS_memfd_create,
-                c"megadisplay".as_ptr(),
-                0u32,
-            )
-        };
+        let fd = unsafe { libc::syscall(libc::SYS_memfd_create, c"megadisplay".as_ptr(), 0u32) };
         if fd < 0 {
             bail!("memfd_create failed: {}", std::io::Error::last_os_error());
         }
@@ -368,10 +384,7 @@ pub mod screencopy {
     }
 
     /// Find a global by interface name and return its registry name (u32).
-    fn find_global(
-        globals: &wayland_client::globals::GlobalList,
-        interface: &str,
-    ) -> u32 {
+    fn find_global(globals: &wayland_client::globals::GlobalList, interface: &str) -> u32 {
         globals
             .contents()
             .clone_list()
@@ -453,8 +466,10 @@ pub mod screencopy {
                         if remaining.is_zero() {
                             return Err(e);
                         }
-                        warn!("Wayland connect failed ({e:#}), retrying in {}ms...",
-                            retry_interval.as_millis());
+                        warn!(
+                            "Wayland connect failed ({e:#}), retrying in {}ms...",
+                            retry_interval.as_millis()
+                        );
                         std::thread::sleep(retry_interval);
                     }
                 }
@@ -466,29 +481,39 @@ pub mod screencopy {
             let conn = Connection::connect_to_env()
                 .context("Failed to connect to Wayland display (WAYLAND_DISPLAY not set?)")?;
 
-            let (globals, mut queue) =
-                registry_queue_init::<CaptureState>(&conn)
-                    .context("Failed to initialize Wayland registry")?;
+            let (globals, mut queue) = registry_queue_init::<CaptureState>(&conn)
+                .context("Failed to initialize Wayland registry")?;
 
             let qh = queue.handle();
 
             // Bind required globals
             let registry = globals.registry();
             let shm_global = find_global(&globals, "wl_shm");
-            let shm: wl_shm::WlShm =
-                registry.bind::<wl_shm::WlShm, _, _>(shm_global, 1, &qh, ());
+            let shm: wl_shm::WlShm = registry.bind::<wl_shm::WlShm, _, _>(shm_global, 1, &qh, ());
 
             let sc_global = find_global(&globals, "zwlr_screencopy_manager_v1");
-            let screencopy_manager =
-                registry.bind::<zwlr_screencopy_manager_v1::ZwlrScreencopyManagerV1, _, _>(
-                    sc_global, 3, &qh, ());
+            let screencopy_manager = registry
+                .bind::<zwlr_screencopy_manager_v1::ZwlrScreencopyManagerV1, _, _>(
+                    sc_global,
+                    3,
+                    &qh,
+                    (),
+                );
 
             // Try to bind zwp_linux_dmabuf_v1 (optional — for dmabuf capture)
-            let dmabuf_manager = globals.contents().clone_list().iter()
+            let dmabuf_manager = globals
+                .contents()
+                .clone_list()
+                .iter()
                 .find(|g| g.interface == "zwp_linux_dmabuf_v1")
-                .map(|g| registry.bind::<zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1, _, _>(
-                    g.name, g.version.min(4), &qh, (),
-                ));
+                .map(|g| {
+                    registry.bind::<zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1, _, _>(
+                        g.name,
+                        g.version.min(4),
+                        &qh,
+                        (),
+                    )
+                });
 
             // Try to open GBM device from DRM render node
             let gbm_device = open_gbm_device();
@@ -520,30 +545,55 @@ pub mod screencopy {
             queue.roundtrip(&mut state).context("Roundtrip 1 failed")?;
             queue.roundtrip(&mut state).context("Roundtrip 2 failed")?;
 
-            debug!("Discovered {} wl_output globals (sorted by global ID):", global_id_to_output.len());
+            debug!(
+                "Discovered {} wl_output globals (sorted by global ID):",
+                global_id_to_output.len()
+            );
             for (gid, _out) in &global_id_to_output {
-                let name = state.output_names.get(gid).map(|s| s.as_str()).unwrap_or("<no-name>");
+                let name = state
+                    .output_names
+                    .get(gid)
+                    .map(|s| s.as_str())
+                    .unwrap_or("<no-name>");
                 debug!("  global_id={} name='{}'", gid, name);
             }
 
             let target_output = if let Some(ref name) = output_name {
                 // Match by wl_output::Name event (v4) — Hyprland sends the connector
                 // name (e.g. "MEGADISPLAY", "DP-3") which matches hyprctl monitors.
-                let by_name = global_id_to_output.iter().find(|(gid, _)| {
-                    state.output_names.get(gid).map(|n| n == name).unwrap_or(false)
-                }).map(|(_, o)| o.clone());
+                let by_name = global_id_to_output
+                    .iter()
+                    .find(|(gid, _)| {
+                        state
+                            .output_names
+                            .get(gid)
+                            .map(|n| n == name)
+                            .unwrap_or(false)
+                    })
+                    .map(|(_, o)| o.clone());
 
                 if let Some(ref _out) = by_name {
                     info!("Selected output '{}' by wl_output name event", name);
                 } else {
-                    let available: Vec<String> = global_id_to_output.iter()
-                        .map(|(gid, _)| format!("global_id={} name='{}'",
-                            gid, state.output_names.get(gid).map(|s| s.as_str()).unwrap_or("?")))
+                    let available: Vec<String> = global_id_to_output
+                        .iter()
+                        .map(|(gid, _)| {
+                            format!(
+                                "global_id={} name='{}'",
+                                gid,
+                                state
+                                    .output_names
+                                    .get(gid)
+                                    .map(|s| s.as_str())
+                                    .unwrap_or("?")
+                            )
+                        })
                         .collect();
                     bail!(
                         "Could not find Wayland output '{}'. \
                          Available outputs:\n  {}",
-                        name, available.join("\n  ")
+                        name,
+                        available.join("\n  ")
                     );
                 }
                 by_name
@@ -554,7 +604,10 @@ pub mod screencopy {
 
             let output = target_output.ok_or_else(|| anyhow::anyhow!("Target output not found"))?;
             let name_str = output_name.clone().unwrap_or_else(|| "unknown".to_string());
-            info!("Connected to Wayland display, capturing output: {}", name_str);
+            info!(
+                "Connected to Wayland display, capturing output: {}",
+                name_str
+            );
 
             Ok(Self {
                 conn,
@@ -614,7 +667,8 @@ pub mod screencopy {
             if !dmabuf_ready && !shm_ready {
                 // SLOW PATH: first frame or buffer invalidated.
                 // Roundtrip to discover buffer dimensions + dmabuf capabilities.
-                self.queue.roundtrip(&mut self.state)
+                self.queue
+                    .roundtrip(&mut self.state)
                     .context("Failed to roundtrip for buffer info")?;
 
                 // Decide dmabuf vs SHM
@@ -650,14 +704,20 @@ pub mod screencopy {
                             self.use_dmabuf = true;
                             self.capture_width = width;
                             self.capture_height = height;
-                            info!("Using dmabuf capture: {}x{} format=0x{:08X}",
-                                width, height, target_format);
+                            info!(
+                                "Using dmabuf capture: {}x{} format=0x{:08X}",
+                                width, height, target_format
+                            );
                         }
                         Err(e) => {
                             warn!("dmabuf setup failed ({:#}, falling back to SHM", e);
                             self.use_dmabuf = false;
-                            self.setup_shm(width, height,
-                                self.state.frame_stride, self.state.frame_format)?;
+                            self.setup_shm(
+                                width,
+                                height,
+                                self.state.frame_stride,
+                                self.state.frame_format,
+                            )?;
                         }
                     }
                 } else {
@@ -665,8 +725,10 @@ pub mod screencopy {
                     let stride = self.state.frame_stride;
                     let shm_format = self.state.frame_format;
                     // Verify SHM format
-                    if shm_format != 0 && shm_format != 1
-                        && shm_format != 0x34325258 && shm_format != 0x34325241
+                    if shm_format != 0
+                        && shm_format != 1
+                        && shm_format != 0x34325258
+                        && shm_format != 0x34325241
                     {
                         frame.destroy();
                         bail!(
@@ -711,8 +773,10 @@ pub mod screencopy {
             {
                 debug!(
                     "Screencopy dimensions changed: {}x{} → {}x{}, will recreate",
-                    self.capture_width, self.capture_height,
-                    self.state.frame_width, self.state.frame_height,
+                    self.capture_width,
+                    self.capture_height,
+                    self.state.frame_width,
+                    self.state.frame_height,
                 );
                 self.invalidate_buffers();
                 frame.destroy();
@@ -734,7 +798,10 @@ pub mod screencopy {
                 let ptr = unsafe {
                     gbm_bo_map(
                         gbm_bo,
-                        0, 0, width, height,
+                        0,
+                        0,
+                        width,
+                        height,
                         GBM_BO_TRANSFER_READ,
                         &mut map_stride,
                         &mut map_data,
@@ -744,16 +811,16 @@ pub mod screencopy {
                     frame.destroy();
                     bail!("gbm_bo_map failed");
                 }
-                let actual_stride = if map_stride > 0 { map_stride } else { bo_stride };
+                let actual_stride = if map_stride > 0 {
+                    map_stride
+                } else {
+                    bo_stride
+                };
                 stride = actual_stride;
                 let copy_size = (actual_stride as usize) * (height as usize);
                 buf.resize(copy_size, 0);
                 unsafe {
-                    std::ptr::copy_nonoverlapping(
-                        ptr as *const u8,
-                        buf.as_mut_ptr(),
-                        copy_size,
-                    );
+                    std::ptr::copy_nonoverlapping(ptr as *const u8, buf.as_mut_ptr(), copy_size);
                     gbm_bo_unmap(gbm_bo, map_data);
                 }
             } else {
@@ -791,13 +858,19 @@ pub mod screencopy {
             let bo = unsafe {
                 gbm_bo_create(
                     dev,
-                    width, height,
+                    width,
+                    height,
                     format,
                     GBM_BO_USE_LINEAR | GBM_BO_USE_RENDERING,
                 )
             };
             if bo.is_null() {
-                bail!("gbm_bo_create failed for {}x{} format=0x{:08X}", width, height, format);
+                bail!(
+                    "gbm_bo_create failed for {}x{} format=0x{:08X}",
+                    width,
+                    height,
+                    format
+                );
             }
 
             let bo_stride = unsafe { gbm_bo_get_stride(bo) };
@@ -816,10 +889,10 @@ pub mod screencopy {
             let borrowed_fd = unsafe { std::os::fd::BorrowedFd::borrow_raw(dmabuf_fd) };
             params.add(
                 borrowed_fd,
-                0,                          // plane_idx
-                0,                          // offset
-                bo_stride,                  // stride
-                (modifier >> 32) as u32,    // modifier_hi
+                0,                              // plane_idx
+                0,                              // offset
+                bo_stride,                      // stride
+                (modifier >> 32) as u32,        // modifier_hi
                 (modifier & 0xFFFFFFFF) as u32, // modifier_lo
             );
 
@@ -834,7 +907,9 @@ pub mod screencopy {
             );
 
             // Clean up old BO/buffer if any
-            if let Some(b) = self.dmabuf_buffer.take() { b.destroy(); }
+            if let Some(b) = self.dmabuf_buffer.take() {
+                b.destroy();
+            }
             self.gbm_bo.take(); // dropped old BO
 
             self.gbm_bo = Some(GbmBo(bo));
@@ -849,25 +924,25 @@ pub mod screencopy {
         }
 
         /// Set up SHM buffer for capturing (extracted from original capture_frame).
-        fn setup_shm(
-            &mut self,
-            width: u32,
-            height: u32,
-            stride: u32,
-            format: u32,
-        ) -> Result<()> {
+        fn setup_shm(&mut self, width: u32, height: u32, stride: u32, format: u32) -> Result<()> {
             let needed_size = (stride * height) as usize;
 
             // Recreate shm if size changed
             if self.shm_size < needed_size || self.pool.is_none() {
-                if let Some(b) = self.buffer.take() { b.destroy(); }
-                if let Some(p) = self.pool.take() { p.destroy(); }
+                if let Some(b) = self.buffer.take() {
+                    b.destroy();
+                }
+                if let Some(p) = self.pool.take() {
+                    p.destroy();
+                }
                 self.shm_map.take();
                 self.shm_fd.take();
 
                 let fd = create_memfd(needed_size)?;
                 let map = unsafe { ShmMapping::new(&fd, needed_size)? };
-                let pool = self.shm.create_pool(fd.as_fd(), needed_size as i32, &self.qh, ());
+                let pool = self
+                    .shm
+                    .create_pool(fd.as_fd(), needed_size as i32, &self.qh, ());
                 self.shm_fd = Some(fd);
                 self.shm_map = Some(map);
                 self.pool = Some(pool);
@@ -884,7 +959,13 @@ pub mod screencopy {
                     wl_shm::Format::Xrgb8888
                 };
                 let buffer = pool.create_buffer(
-                    0, width as i32, height as i32, stride as i32, fmt, &self.qh, (),
+                    0,
+                    width as i32,
+                    height as i32,
+                    stride as i32,
+                    fmt,
+                    &self.qh,
+                    (),
                 );
                 self.buffer = Some(buffer);
             }
@@ -897,9 +978,15 @@ pub mod screencopy {
 
         /// Invalidate all buffers — called on error or dimension change.
         fn invalidate_buffers(&mut self) {
-            if let Some(b) = self.buffer.take() { b.destroy(); }
-            if let Some(p) = self.pool.take() { p.destroy(); }
-            if let Some(b) = self.dmabuf_buffer.take() { b.destroy(); }
+            if let Some(b) = self.buffer.take() {
+                b.destroy();
+            }
+            if let Some(p) = self.pool.take() {
+                p.destroy();
+            }
+            if let Some(b) = self.dmabuf_buffer.take() {
+                b.destroy();
+            }
             self.gbm_bo.take();
             self.shm_map.take();
             self.shm_fd.take();
@@ -909,5 +996,4 @@ pub mod screencopy {
             self.use_dmabuf = false;
         }
     }
-
 }

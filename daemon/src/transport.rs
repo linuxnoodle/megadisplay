@@ -10,12 +10,10 @@
 //! - Android→PC: simple [4B LE length][payload]
 //! - Payload starts with 1-byte DataType
 
-use anyhow::{anyhow, bail, Context, Result};
-use megadisplay_protocol::{
-    build_handshake, parse_handshake, DataType, SUPPORTED_HOST_VERSIONS,
-};
-use nusb::transfer::{Bulk, ControlIn, ControlOut, ControlType, In, Out};
+use anyhow::{Context, Result, anyhow, bail};
+use megadisplay_protocol::{DataType, SUPPORTED_HOST_VERSIONS, build_handshake, parse_handshake};
 use nusb::MaybeFuture;
+use nusb::transfer::{Bulk, ControlIn, ControlOut, ControlType, In, Out};
 use std::time::Duration;
 use tracing::{debug, info, warn};
 
@@ -67,7 +65,9 @@ impl AoapConnection {
 
     #[tracing::instrument(skip_all)]
     pub fn send(&mut self, data: &[u8]) -> Result<()> {
-        self.ep_out.transfer_blocking(data.to_vec().into(), TIMEOUT).into_result()?;
+        self.ep_out
+            .transfer_blocking(data.to_vec().into(), TIMEOUT)
+            .into_result()?;
         Ok(())
     }
 
@@ -81,7 +81,9 @@ impl AoapConnection {
     pub fn split(self) -> (AoapReader, AoapWriter) {
         (
             AoapReader { ep_in: self.ep_in },
-            AoapWriter { ep_out: self.ep_out },
+            AoapWriter {
+                ep_out: self.ep_out,
+            },
         )
     }
 }
@@ -90,7 +92,10 @@ impl AoapReader {
     #[tracing::instrument(skip_all)]
     pub fn recv(&mut self, _max_len: usize) -> Result<Vec<u8>> {
         let buf = nusb::transfer::Buffer::new(1_048_576); // 1MB — large enough for full keyframes
-        let buffer = self.ep_in.transfer_blocking(buf, Duration::from_secs(3600)).into_result()?;
+        let buffer = self
+            .ep_in
+            .transfer_blocking(buf, Duration::from_secs(3600))
+            .into_result()?;
         Ok(buffer.to_vec())
     }
 }
@@ -104,7 +109,9 @@ impl TransportRead for AoapReader {
 impl AoapWriter {
     #[tracing::instrument(skip_all)]
     pub fn send(&mut self, data: &[u8]) -> Result<()> {
-        self.ep_out.transfer_blocking(data.to_vec().into(), TIMEOUT).into_result()?;
+        self.ep_out
+            .transfer_blocking(data.to_vec().into(), TIMEOUT)
+            .into_result()?;
         Ok(())
     }
 }
@@ -116,60 +123,78 @@ impl TransportWrite for AoapWriter {
 }
 
 pub fn find_android_device() -> Result<nusb::DeviceInfo> {
-    let devices = nusb::list_devices().wait()
+    let devices = nusb::list_devices()
+        .wait()
         .context("Failed to enumerate USB devices")?;
 
     for dev in devices {
-        let is_aoap = dev.vendor_id() == AOAP_VID &&
-            (dev.product_id() == AOAP_PID_ACCESSORY || dev.product_id() == AOAP_PID_ACCESSORY_ADB);
+        let is_aoap = dev.vendor_id() == AOAP_VID
+            && (dev.product_id() == AOAP_PID_ACCESSORY
+                || dev.product_id() == AOAP_PID_ACCESSORY_ADB);
 
         if is_aoap {
             info!(
                 "Found AOAP accessory: {:04x}:{:04x} on bus {} dev {}",
-                dev.vendor_id(), dev.product_id(),
-                dev.bus_id(), dev.device_address()
+                dev.vendor_id(),
+                dev.product_id(),
+                dev.bus_id(),
+                dev.device_address()
             );
             return Ok(dev);
         }
     }
-    bail!("No Android device found in AOAP mode. Connect device and ensure USB debugging is enabled.")
+    bail!(
+        "No Android device found in AOAP mode. Connect device and ensure USB debugging is enabled."
+    )
 }
 
-pub fn find_any_android_device() -> Result<nusb::DeviceInfo> {
-    let devices = nusb::list_devices().wait()
+pub fn find_potential_android_devices() -> Result<Vec<nusb::DeviceInfo>> {
+    let devices = nusb::list_devices()
+        .wait()
         .context("Failed to enumerate USB devices")?;
 
+    let mut potential_devices = Vec::new();
     for dev in devices {
         let cls = dev.class();
-        let is_android = dev.vendor_id() == AOAP_VID ||
-            (cls == 0x00 && dev.subclass() == 0x00);
+        let is_android = dev.vendor_id() == AOAP_VID || (cls == 0x00 && dev.subclass() == 0x00);
 
         if is_android {
             debug!(
                 "Found potential Android device: {:04x}:{:04x}",
-                dev.vendor_id(), dev.product_id()
+                dev.vendor_id(),
+                dev.product_id()
             );
-            return Ok(dev);
+            potential_devices.push(dev);
         }
     }
-    bail!("No Android device found")
+
+    if potential_devices.is_empty() {
+        bail!("No potential Android devices found")
+    }
+
+    Ok(potential_devices)
 }
 
 pub fn try_enter_accessory_mode(dev_info: &nusb::DeviceInfo) -> Result<bool> {
-    let device = dev_info.open().wait()
+    let device = dev_info
+        .open()
+        .wait()
         .context("Failed to open USB device")?;
 
-    match device.control_in(
-        ControlIn {
-            control_type: ControlType::Vendor,
-            recipient: nusb::transfer::Recipient::Device,
-            request: AOAP_ACCESSORY_GET_PROTOCOL,
-            value: 0,
-            index: 0,
-            length: 2,
-        },
-        TIMEOUT,
-    ).wait() {
+    match device
+        .control_in(
+            ControlIn {
+                control_type: ControlType::Vendor,
+                recipient: nusb::transfer::Recipient::Device,
+                request: AOAP_ACCESSORY_GET_PROTOCOL,
+                value: 0,
+                index: 0,
+                length: 2,
+            },
+            TIMEOUT,
+        )
+        .wait()
+    {
         Ok(data) if data.len() >= 2 => {
             let version = u16::from_le_bytes([data[0], data[1]]);
             info!("AOAP protocol version: {}", version);
@@ -188,19 +213,23 @@ pub fn try_enter_accessory_mode(dev_info: &nusb::DeviceInfo) -> Result<bool> {
     send_aoap_string(&device, AOAP_STRING_MODEL, "superDisplay")?;
     send_aoap_string(&device, AOAP_STRING_TYPE, "1.0")?;
     send_aoap_string(&device, AOAP_STRING_VERSION, "1.0")?;
+    send_aoap_string(&device, 4, "https://megadisplay.com")?;
+    send_aoap_string(&device, 5, "1234567890")?;
 
     info!("Sending AOAP START...");
-    device.control_out(
-        ControlOut {
-            control_type: ControlType::Vendor,
-            recipient: nusb::transfer::Recipient::Device,
-            request: AOAP_ACCESSORY_START,
-            value: 0,
-            index: 0,
-            data: &[],
-        },
-        TIMEOUT,
-    ).wait()?;
+    device
+        .control_out(
+            ControlOut {
+                control_type: ControlType::Vendor,
+                recipient: nusb::transfer::Recipient::Device,
+                request: AOAP_ACCESSORY_START,
+                value: 0,
+                index: 0,
+                data: &[],
+            },
+            TIMEOUT,
+        )
+        .wait()?;
 
     info!("AOAP START sent, device will re-enumerate");
     Ok(true)
@@ -209,47 +238,55 @@ pub fn try_enter_accessory_mode(dev_info: &nusb::DeviceInfo) -> Result<bool> {
 fn send_aoap_string(device: &nusb::Device, index: u16, s: &str) -> Result<()> {
     let mut data = s.as_bytes().to_vec();
     data.push(0);
-    device.control_out(
-        ControlOut {
-            control_type: ControlType::Vendor,
-            recipient: nusb::transfer::Recipient::Device,
-            request: AOAP_ACCESSORY_SEND_STRING,
-            value: 0,
-            index,
-            data: &data,
-        },
-        TIMEOUT,
-    ).wait()?;
+    device
+        .control_out(
+            ControlOut {
+                control_type: ControlType::Vendor,
+                recipient: nusb::transfer::Recipient::Device,
+                request: AOAP_ACCESSORY_SEND_STRING,
+                value: 0,
+                index,
+                data: &data,
+            },
+            TIMEOUT,
+        )
+        .wait()?;
     Ok(())
 }
 
 pub fn open_aoap_connection(dev_info: &nusb::DeviceInfo) -> Result<AoapConnection> {
-    let device = dev_info.open().wait()
+    let device = dev_info
+        .open()
+        .wait()
         .context("Failed to open AOAP device")?;
 
-    let config = device.active_configuration()
+    let config = device
+        .active_configuration()
         .context("Failed to get active configuration")?;
 
-    let interface_desc = config.interface_alt_settings()
+    let interface_desc = config
+        .interface_alt_settings()
         .find(|intf| {
-            intf.endpoints().any(|ep| {
-                ep.transfer_type() == nusb::descriptors::TransferType::Bulk
-            })
+            intf.endpoints()
+                .any(|ep| ep.transfer_type() == nusb::descriptors::TransferType::Bulk)
         })
         .ok_or_else(|| anyhow!("No interface with bulk endpoints found"))?;
 
     let interface_num = interface_desc.interface_number();
 
-    let bulk_endpoints: Vec<_> = interface_desc.endpoints()
+    let bulk_endpoints: Vec<_> = interface_desc
+        .endpoints()
         .filter(|ep| ep.transfer_type() == nusb::descriptors::TransferType::Bulk)
         .collect();
 
-    let ep_out_addr = bulk_endpoints.iter()
+    let ep_out_addr = bulk_endpoints
+        .iter()
         .find(|ep| ep.address() & 0x80 == 0)
         .map(|ep| ep.address())
         .ok_or_else(|| anyhow!("No bulk OUT endpoint found"))?;
 
-    let ep_in_addr = bulk_endpoints.iter()
+    let ep_in_addr = bulk_endpoints
+        .iter()
         .find(|ep| ep.address() & 0x80 != 0)
         .map(|ep| ep.address())
         .ok_or_else(|| anyhow!("No bulk IN endpoint found"))?;
@@ -277,14 +314,17 @@ pub fn do_handshake(conn: &mut AoapConnection) -> Result<u32> {
     info!("Sending protocol handshake...");
 
     let our_handshake = build_handshake(SUPPORTED_HOST_VERSIONS[0]);
-    conn.send(&our_handshake).context("Failed to send handshake")?;
+    conn.send(&our_handshake)
+        .context("Failed to send handshake")?;
     info!("Handshake sent successfully, waiting for response...");
 
     let mut response = vec![0u8; 18];
     let mut read = 0;
     while read < 18 {
         info!("Receiving handshake bytes, currently read: {}", read);
-        let data = conn.recv(16384).context("Failed to recv handshake response")?;
+        let data = conn
+            .recv(16384)
+            .context("Failed to recv handshake response")?;
         if data.is_empty() {
             bail!("Device closed connection during handshake");
         }
@@ -296,7 +336,10 @@ pub fn do_handshake(conn: &mut AoapConnection) -> Result<u32> {
     let peer_version = match parse_handshake(&response) {
         Ok(v) => v,
         Err(e) => {
-            warn!("Handshake parse failed: {}. Raw bytes received: {:?}", e, response);
+            warn!(
+                "Handshake parse failed: {}. Raw bytes received: {:?}",
+                e, response
+            );
             return Err(e.into());
         }
     };
@@ -310,7 +353,9 @@ pub struct FragmentWriter {
 
 impl FragmentWriter {
     pub fn new() -> Self {
-        Self { buf: Vec::with_capacity(65536) }
+        Self {
+            buf: Vec::with_capacity(65536),
+        }
     }
 
     pub fn build_fragment(&mut self, stream_id: u8, payload: &[u8]) -> &[u8] {
@@ -318,25 +363,27 @@ impl FragmentWriter {
         let _total = 4 + payload.len();
         let mut msg_header = Vec::new();
         msg_header.extend_from_slice(&(payload.len() as u32).to_le_bytes());
-        
+
         let mut remaining_payload = payload;
         let mut remaining_header = msg_header.as_slice();
-        
+
         while !remaining_header.is_empty() || !remaining_payload.is_empty() {
             let space_for_header = remaining_header.len().min(65535);
             let space_for_payload = (65535 - space_for_header).min(remaining_payload.len());
             let frag_data_len = space_for_header + space_for_payload;
-            
+
             self.buf.push(stream_id);
             self.buf.push((frag_data_len & 0xFF) as u8);
             self.buf.push(((frag_data_len >> 8) & 0xFF) as u8);
-            
+
             if space_for_header > 0 {
-                self.buf.extend_from_slice(&remaining_header[..space_for_header]);
+                self.buf
+                    .extend_from_slice(&remaining_header[..space_for_header]);
                 remaining_header = &remaining_header[space_for_header..];
             }
             if space_for_payload > 0 {
-                self.buf.extend_from_slice(&remaining_payload[..space_for_payload]);
+                self.buf
+                    .extend_from_slice(&remaining_payload[..space_for_payload]);
                 remaining_payload = &remaining_payload[space_for_payload..];
             }
         }
@@ -347,30 +394,32 @@ impl FragmentWriter {
         self.buf.clear();
         let payload_len = 1 + 1 + nal_data.len();
         let _total = 4 + payload_len;
-        
+
         let mut msg_header = Vec::new();
         msg_header.extend_from_slice(&(payload_len as u32).to_le_bytes());
         msg_header.push(DataType::Frame as u8);
         msg_header.push(0); // flags
-        
+
         let mut remaining_payload = nal_data;
         let mut remaining_header = msg_header.as_slice();
-        
+
         while !remaining_header.is_empty() || !remaining_payload.is_empty() {
             let space_for_header = remaining_header.len().min(65535);
             let space_for_payload = (65535 - space_for_header).min(remaining_payload.len());
             let frag_data_len = space_for_header + space_for_payload;
-            
+
             self.buf.push(stream_id);
             self.buf.push((frag_data_len & 0xFF) as u8);
             self.buf.push(((frag_data_len >> 8) & 0xFF) as u8);
-            
+
             if space_for_header > 0 {
-                self.buf.extend_from_slice(&remaining_header[..space_for_header]);
+                self.buf
+                    .extend_from_slice(&remaining_header[..space_for_header]);
                 remaining_header = &remaining_header[space_for_header..];
             }
             if space_for_payload > 0 {
-                self.buf.extend_from_slice(&remaining_payload[..space_for_payload]);
+                self.buf
+                    .extend_from_slice(&remaining_payload[..space_for_payload]);
                 remaining_payload = &remaining_payload[space_for_payload..];
             }
         }
@@ -400,9 +449,9 @@ impl MessageReader {
                 if self.buf.len() < 4 {
                     break;
                 }
-                self.msg_len = u32::from_le_bytes([
-                    self.buf[0], self.buf[1], self.buf[2], self.buf[3],
-                ]) as usize;
+                self.msg_len =
+                    u32::from_le_bytes([self.buf[0], self.buf[1], self.buf[2], self.buf[3]])
+                        as usize;
                 self.buf.drain(0..4);
             }
 
@@ -411,8 +460,8 @@ impl MessageReader {
             }
 
             let payload: Vec<u8> = self.buf.drain(0..self.msg_len).collect();
-            let data_type = DataType::from_u8(payload.first().copied().unwrap_or(0))
-                .unwrap_or(DataType::State);
+            let data_type =
+                DataType::from_u8(payload.first().copied().unwrap_or(0)).unwrap_or(DataType::State);
             let msg_data = if payload.len() > 1 {
                 payload[1..].to_vec()
             } else {
@@ -428,39 +477,67 @@ impl MessageReader {
 
 pub fn connect_and_handshake() -> Result<(AoapConnection, u32)> {
     info!("Scanning for AOAP devices...");
+    let mut last_switch_attempt =
+        std::collections::HashMap::<(u16, u16), std::time::Instant>::new();
 
     loop {
         if let Ok(dev) = find_android_device() {
             info!("Attempting to connect to AOAP bulk endpoints...");
             match open_aoap_connection(&dev) {
-                Ok(mut conn) => {
-                    match do_handshake(&mut conn) {
-                        Ok(version) => return Ok((conn, version)),
-                        Err(e) => {
-                            warn!("Handshake failed: {}. Issuing USB reset to force Android accessory mode recovery...", e);
-                            let _ = conn.device().reset().wait();
-                        }
+                Ok(mut conn) => match do_handshake(&mut conn) {
+                    Ok(version) => return Ok((conn, version)),
+                    Err(e) => {
+                        warn!(
+                            "Handshake failed: {}. Issuing USB reset to force Android accessory mode recovery...",
+                            e
+                        );
+                        let _ = conn.device().reset().wait();
                     }
-                }
+                },
                 Err(e) => {
                     warn!("Failed to open AOAP connection: {}. Retrying in 1s...", e);
                 }
             }
-        } else if let Ok(dev_info) = find_any_android_device() {
-            let vid = dev_info.vendor_id();
-            let pid = dev_info.product_id();
-            info!("No AOAP device found, trying to switch Android device {:04x}:{:04x} to accessory mode...", vid, pid);
-            match try_enter_accessory_mode(&dev_info) {
-                Ok(true) => {
-                    info!("Waiting for AOAP re-enumeration...");
-                    std::thread::sleep(Duration::from_secs(2));
+        } else if let Ok(devices) = find_potential_android_devices() {
+            let mut switched = false;
+            for dev_info in devices {
+                let vid = dev_info.vendor_id();
+                let pid = dev_info.product_id();
+                let key = (vid, pid);
+
+                if let Some(&last_attempt) = last_switch_attempt.get(&key) {
+                    if last_attempt.elapsed() < std::time::Duration::from_secs(15) {
+                        continue;
+                    }
                 }
-                Ok(false) => {
-                    warn!("Device doesn't support AOAP");
+
+                info!(
+                    "No AOAP device found, trying to switch Android device {:04x}:{:04x} to accessory mode...",
+                    vid, pid
+                );
+
+                // Track this attempt regardless of success so we don't spam logs
+                last_switch_attempt.insert(key, std::time::Instant::now());
+
+                match try_enter_accessory_mode(&dev_info) {
+                    Ok(true) => {
+                        switched = true;
+                        break;
+                    }
+                    Ok(false) => {
+                        warn!("Device {:04x}:{:04x} doesn't support AOAP", vid, pid);
+                    }
+                    Err(e) => {
+                        warn!("AOAP mode entry failed for {:04x}:{:04x}: {}", vid, pid, e);
+                    }
                 }
-                Err(e) => {
-                    warn!("AOAP mode entry failed: {}", e);
-                }
+            }
+            if switched {
+                info!(
+                    "Waiting for AOAP re-enumeration (might take up to 15s to prompt the user)..."
+                );
+            } else {
+                info!("Waiting for Android device...");
             }
         } else {
             info!("Waiting for Android device...");

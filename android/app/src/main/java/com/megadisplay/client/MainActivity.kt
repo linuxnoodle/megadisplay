@@ -30,11 +30,28 @@ class MainActivity : Activity() {
             }
         }
 
+        val btnUsb = android.widget.Button(this).apply {
+            text = "Connect USB"
+            setOnClickListener {
+                val usbManager = getSystemService(android.content.Context.USB_SERVICE) as UsbManager
+                val accessory = usbManager.accessoryList?.firstOrNull()
+                if (accessory != null) {
+                    val mirrorIntent = Intent(this@MainActivity, MirrorActivity::class.java).apply {
+                        putExtra(UsbManager.EXTRA_ACCESSORY, accessory)
+                    }
+                    startActivity(mirrorIntent)
+                } else {
+                    android.widget.Toast.makeText(this@MainActivity, "No USB accessory found", android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = android.view.Gravity.CENTER
             addView(tv)
             addView(btnTcp)
+            addView(btnUsb)
         }
         setContentView(root)
 
@@ -48,15 +65,9 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
-        val usbManager = getSystemService(android.content.Context.USB_SERVICE) as UsbManager
-        val accessory = usbManager.accessoryList?.firstOrNull()
-        if (accessory != null && usbManager.hasPermission(accessory)) {
-            Log.i(TAG, "Accessory already connected, auto-launching MirrorActivity")
-            val mirrorIntent = Intent(this, MirrorActivity::class.java).apply {
-                putExtra(UsbManager.EXTRA_ACCESSORY, accessory)
-            }
-            startActivity(mirrorIntent)
-        }
+        // Do not auto-launch in onResume. This caused an infinite loop of ANRs 
+        // if the accessory was present but failed to open. 
+        // The user can tap the "Connect USB" button or rely on the OS Intent.
     }
 
     private fun checkForUsbAccessory(intent: Intent?) {

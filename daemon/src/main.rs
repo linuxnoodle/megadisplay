@@ -1,22 +1,22 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use clap::Parser;
 use megadisplay_protocol::{DataType, ERROR_WARN_BAD_RESOLUTION, ERROR_WARN_SOFTWARE_ENCODER};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{mpsc, Arc, Mutex};
+use std::sync::{Arc, Mutex, mpsc};
 use std::time::{Duration, Instant};
 use tracing::{debug, error, info, warn};
 
 mod config;
-mod transport;
-mod video;
-mod input;
 mod display;
-mod tcp;
-#[cfg(feature = "wayland")]
-mod wayland;
 #[cfg(feature = "input-inject")]
 mod inject;
+mod input;
 mod ipc;
+mod tcp;
+mod transport;
+mod video;
+#[cfg(feature = "wayland")]
+mod wayland;
 
 use config::Config;
 
@@ -51,9 +51,7 @@ fn main() -> Result<()> {
             .init();
         Some(guard)
     } else {
-        tracing_subscriber::fmt()
-            .with_env_filter(&cli.log)
-            .init();
+        tracing_subscriber::fmt().with_env_filter(&cli.log).init();
         None
     };
 
@@ -64,10 +62,15 @@ fn main() -> Result<()> {
         let cfg = config.lock().unwrap();
         info!(
             "Config: {}x{} @ {}fps, {}kbps, scale {:.2} | output: {} | input: touch={} pen={} kb={}",
-            cfg.video.width, cfg.video.height, cfg.video.fps, cfg.video.bitrate_kbps,
+            cfg.video.width,
+            cfg.video.height,
+            cfg.video.fps,
+            cfg.video.bitrate_kbps,
             cfg.video.encode_scale,
             cfg.output.name,
-            cfg.input.touch, cfg.input.pen, cfg.input.keyboard,
+            cfg.input.touch,
+            cfg.input.pen,
+            cfg.input.keyboard,
         );
     }
 
@@ -81,40 +84,73 @@ fn main() -> Result<()> {
 
     let _ipc_thread = if !cli.no_ipc {
         let sp = socket_path.clone();
-        Some(std::thread::Builder::new()
-            .name("ipc".into())
-            .spawn(move || {
-                if let Err(e) = ipc_server.run(&sp) {
-                    error!("IPC server error: {}", e);
-                }
-            })?)
+        Some(
+            std::thread::Builder::new()
+                .name("ipc".into())
+                .spawn(move || {
+                    if let Err(e) = ipc_server.run(&sp) {
+                        error!("IPC server error: {}", e);
+                    }
+                })?,
+        )
     } else {
         None
     };
 
     if let Some(port) = cli.tcp {
         info!("Using TCP transport on port {}", port);
-        let mut conn = tcp::listen_and_accept(port)
-            .context("Failed to establish TCP connection")?;
+        let mut conn =
+            tcp::listen_and_accept(port).context("Failed to establish TCP connection")?;
         let peer_version = tcp::do_handshake(&mut conn)?;
         info!("Connected! Peer protocol version: {}", peer_version);
         let (reader, writer) = conn.split();
         let (tx_outgoing, rx_outgoing) = mpsc::channel::<Vec<u8>>();
         let (tx_incoming, rx_incoming) = mpsc::channel::<(DataType, Vec<u8>)>();
         run_session(
-            reader, writer, tx_outgoing, rx_outgoing, tx_incoming, rx_incoming,
-            Arc::clone(&config), stats_handle,
-            Arc::clone(&app_shutdown), None,
+            reader,
+            writer,
+            tx_outgoing,
+            rx_outgoing,
+            tx_incoming,
+            rx_incoming,
+            Arc::clone(&config),
+            stats_handle,
+            Arc::clone(&app_shutdown),
+            None,
         )?;
     } else {
         loop {
             if app_shutdown.load(Ordering::SeqCst) || ipc_shutdown.load(Ordering::SeqCst) {
                 break;
             }
+
             info!("Connecting to Android device via AOAP...");
             match transport::connect_and_handshake() {
                 Ok((conn, peer_version)) => {
                     info!("Connected! Peer protocol version: {}", peer_version);
+                    let mut target_output_name = None;
+
+                    {
+                        let cfg = config.lock().unwrap().clone();
+                        if cfg.output.create {
+                            match create_headless_output(
+                                &cfg.output.name,
+                                cfg.video.width,
+                                cfg.video.height,
+                                cfg.output.scale,
+                                cfg.video.refresh_hz,
+                            ) {
+                                Ok(name) => {
+                                    info!("Created/updated headless output: {}", name);
+                                    target_output_name = Some(name);
+                                }
+                                Err(e) => {
+                                    warn!("Failed to create headless output: {} (continuing)", e);
+                                }
+                            }
+                        }
+                    }
+
                     {
                         let mut st = status_handle.lock().unwrap();
                         st.connected = true;
@@ -128,27 +164,30 @@ fn main() -> Result<()> {
                     let (tx_outgoing, rx_outgoing) = mpsc::channel::<Vec<u8>>();
                     let (tx_incoming, rx_incoming) = mpsc::channel::<(DataType, Vec<u8>)>();
 
-                    let cfg = config.lock().unwrap().clone();
-                    let mut target_output_name = None;
-                    if cfg.output.create {
-                        match create_headless_output(&cfg.output.name, cfg.video.width, cfg.video.height, cfg.output.scale, cfg.video.refresh_hz) {
-                            Ok(name) => {
-                                info!("Created headless output: {}", name);
-                                target_output_name = Some(name);
-                            }
-                            Err(e) => warn!("Failed to create headless output: {} (continuing)", e),
-                        }
-                    }
-
                     let result = run_session(
-                        reader, writer, tx_outgoing, rx_outgoing, tx_incoming, rx_incoming,
-                        Arc::clone(&config), Arc::clone(&stats_handle),
-                        Arc::clone(&app_shutdown), target_output_name,
+                        reader,
+                        writer,
+                        tx_outgoing,
+                        rx_outgoing,
+                        tx_incoming,
+                        rx_incoming,
+                        Arc::clone(&config),
+                        Arc::clone(&stats_handle),
+                        Arc::clone(&app_shutdown),
+                        target_output_name.clone(),
                     );
                     {
                         let mut st = status_handle.lock().unwrap();
                         st.connected = false;
                     }
+
+                    if let Some(name) = target_output_name {
+                        info!("Destroying headless output: {}", name);
+                        let _ = std::process::Command::new("hyprctl")
+                            .args(["output", "remove", &name])
+                            .output();
+                    }
+
                     if let Err(e) = result {
                         warn!("Session error: {}", e);
                     } else {
@@ -209,11 +248,20 @@ fn run_session<R: transport::TransportRead + 'static, W: transport::TransportWri
         let video_output_name = output_name.clone();
         let stats_clone = Arc::clone(&stats);
 
-        _video_handle = Some(std::thread::Builder::new()
-            .name("video-capture".into())
-            .spawn(move || {
-                video_capture_loop(video_config, video_output_name, tx, kill_switch, idr_switch, stats_clone);
-            })?);
+        _video_handle = Some(
+            std::thread::Builder::new()
+                .name("video-capture".into())
+                .spawn(move || {
+                    video_capture_loop(
+                        video_config,
+                        video_output_name,
+                        tx,
+                        kill_switch,
+                        idr_switch,
+                        stats_clone,
+                    );
+                })?,
+        );
     }
 
     let _read_handle = {
@@ -278,28 +326,34 @@ fn run_session<R: transport::TransportRead + 'static, W: transport::TransportWri
                     let fragment = fragment_writer.build_fragment(0, &resp);
                     let _ = tx_outgoing.send(fragment.to_vec());
                     if !configured {
-                        info!("Session configured: {}x{}", cfg.video.width, cfg.video.height);
+                        info!(
+                            "Session configured: {}x{}",
+                            cfg.video.width, cfg.video.height
+                        );
                         configured = true;
                     }
                     video_idr_switch.store(true, Ordering::SeqCst);
                 }
                 DataType::Touch => {
                     if let Some(ref mut emitter) = input_emitter
-                        && let Err(e) = emitter.process_touch(&payload) {
-                            warn!("Touch: {}", e);
-                        }
+                        && let Err(e) = emitter.process_touch(&payload)
+                    {
+                        warn!("Touch: {}", e);
+                    }
                 }
                 DataType::Pen => {
                     if let Some(ref mut emitter) = input_emitter
-                        && let Err(e) = emitter.process_pen(&payload, cached_pen_cursor) {
-                            warn!("Pen: {}", e);
-                        }
+                        && let Err(e) = emitter.process_pen(&payload, cached_pen_cursor)
+                    {
+                        warn!("Pen: {}", e);
+                    }
                 }
                 DataType::Keyboard => {
                     if let Some(ref mut emitter) = input_emitter
-                        && let Err(e) = emitter.process_keyboard(&payload) {
-                            warn!("Keyboard: {}", e);
-                        }
+                        && let Err(e) = emitter.process_keyboard(&payload)
+                    {
+                        warn!("Keyboard: {}", e);
+                    }
                 }
                 DataType::FrameDone => {
                     if let Some(ref mut emitter) = input_emitter {
@@ -320,20 +374,23 @@ fn run_session<R: transport::TransportRead + 'static, W: transport::TransportWri
                 DataType::State => {}
                 DataType::LatencyReport => {
                     if payload.len() >= 4 {
-                        let ms = f32::from_le_bytes([
-                            payload[0], payload[1], payload[2], payload[3],
-                        ]);
+                        let ms =
+                            f32::from_le_bytes([payload[0], payload[1], payload[2], payload[3]]);
                         let mut s = stats.lock().unwrap();
                         s.input_latency_ms = ms;
                     }
                 }
                 DataType::Command => {
                     if let Ok(json) = serde_json::from_str::<serde_json::Value>(
-                        &String::from_utf8_lossy(&payload)
+                        &String::from_utf8_lossy(&payload),
                     ) {
                         let mut cfg = config.lock().unwrap();
-                        if let Some(f) = json.get("fps").and_then(|v| v.as_u64()) { cfg.video.fps = f as u32; }
-                        if let Some(b) = json.get("bitrate").and_then(|v| v.as_u64()) { cfg.video.bitrate_kbps = b as u32; }
+                        if let Some(f) = json.get("fps").and_then(|v| v.as_u64()) {
+                            cfg.video.fps = f as u32;
+                        }
+                        if let Some(b) = json.get("bitrate").and_then(|v| v.as_u64()) {
+                            cfg.video.bitrate_kbps = b as u32;
+                        }
                         let _ = cfg.save();
                     }
                 }
@@ -365,11 +422,20 @@ fn build_configure_response(width: u32, height: u32) -> Vec<u8> {
     buf
 }
 
-fn create_headless_output(name: &str, width: u32, height: u32, scale: f32, refresh_hz: u32) -> Result<String> {
+fn create_headless_output(
+    name: &str,
+    width: u32,
+    height: u32,
+    scale: f32,
+    refresh_hz: u32,
+) -> Result<String> {
     use std::process::Command;
     let mode = format!("{}x{}@{}", width, height, refresh_hz);
 
-    let monitors_out = Command::new("hyprctl").args(["-j", "monitors"]).output().unwrap();
+    let monitors_out = Command::new("hyprctl")
+        .args(["-j", "monitors"])
+        .output()
+        .unwrap();
     let monitors: serde_json::Value =
         serde_json::from_str(&String::from_utf8_lossy(&monitors_out.stdout)).unwrap_or_default();
 
@@ -381,7 +447,11 @@ fn create_headless_output(name: &str, width: u32, height: u32, scale: f32, refre
         {
             info!("Re-using existing monitor: {}", n);
             let _ = Command::new("hyprctl")
-                .args(["keyword", "monitor", &format!("{},{},{}x{},{}", n, mode, pos.0, pos.1, scale)])
+                .args([
+                    "keyword",
+                    "monitor",
+                    &format!("{},{},{}x{},{}", n, mode, pos.0, pos.1, scale),
+                ])
                 .output();
             return Ok(n.to_string());
         }
@@ -396,22 +466,45 @@ fn create_headless_output(name: &str, width: u32, height: u32, scale: f32, refre
     }
     std::thread::sleep(Duration::from_millis(500));
     let _ = Command::new("hyprctl")
-        .args(["keyword", "monitor", &format!("{},{},{}x{},{}", name, mode, pos.0, pos.1, scale)])
+        .args([
+            "keyword",
+            "monitor",
+            &format!("{},{},{}x{},{}", name, mode, pos.0, pos.1, scale),
+        ])
         .output();
     Ok(name.to_string())
 }
 
-fn compute_position_below(monitors: &serde_json::Value, anchor: &str, our_width: u32) -> (i32, i32) {
-    for m in monitors.as_array().unwrap_or(&vec![]) {
-        if m.get("name").and_then(|v| v.as_str()) == Some(anchor) {
-            let x = m["x"].as_i64().unwrap_or(0) as i32;
-            let y = m["y"].as_i64().unwrap_or(0) as i32;
-            let w = m["width"].as_i64().unwrap_or(0) as i32;
-            let cx = x + (w - our_width as i32) / 2;
-            info!("Positioning below {}: {}x{}", anchor, cx, y + m["height"].as_i64().unwrap_or(0) as i32);
-            return (cx, y + m["height"].as_i64().unwrap_or(0) as i32);
-        }
+fn compute_position_below(
+    monitors: &serde_json::Value,
+    _anchor: &str,
+    our_width: u32,
+) -> (i32, i32) {
+    let monitors_array = monitors.as_array().unwrap_or(&vec![]).clone();
+    
+    for m in monitors_array {
+        let name = m.get("name").and_then(|v| v.as_str()).unwrap_or("");
+        if name == "MEGADISPLAY" { continue; } // Don't base position on ourselves
+        
+        let x = m.get("x").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
+        let y = m.get("y").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
+        let w = m.get("width").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
+        let h = m.get("height").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
+        let scale = m.get("scale").and_then(|v| v.as_f64()).unwrap_or(1.0) as f32;
+        
+        let scaled_w = (w as f32 / scale) as i32;
+        let scaled_h = (h as f32 / scale) as i32;
+
+        let cx = x + (scaled_w - our_width as i32) / 2;
+        // Align to avoid fractional rounding issues in hyprland
+        let cx = (cx as f32 / 100.0).round() as i32 * 100;
+        let cy = (y + scaled_h as i32) as f32;
+        let cy = (cy / 100.0).ceil() as i32 * 100;
+
+        info!("Positioning headless monitor below {}: {}x{}", name, cx, cy);
+        return (cx, cy);
     }
+
     (0, 0)
 }
 
@@ -453,7 +546,9 @@ fn video_capture_loop(
     let _encode_handle = std::thread::Builder::new()
         .name("video-encode".into())
         .spawn(move || {
-            encode_loop(rx_frame, tx_pool, enc_config, enc_tx, enc_kill, enc_idr, enc_stats, width, height);
+            encode_loop(
+                rx_frame, tx_pool, enc_config, enc_tx, enc_kill, enc_idr, enc_stats, width, height,
+            );
         });
 
     let mut frame_buf = Vec::new();
@@ -537,11 +632,12 @@ fn encode_loop(
             break;
         }
 
-        let (mut frame_data, mut stride, mut wait_ms, mut copy_ms) = match rx_frame.recv_timeout(Duration::from_millis(100)) {
-            Ok(d) => d,
-            Err(mpsc::RecvTimeoutError::Timeout) => continue,
-            Err(mpsc::RecvTimeoutError::Disconnected) => break,
-        };
+        let (mut frame_data, mut stride, mut wait_ms, mut copy_ms) =
+            match rx_frame.recv_timeout(Duration::from_millis(100)) {
+                Ok(d) => d,
+                Err(mpsc::RecvTimeoutError::Timeout) => continue,
+                Err(mpsc::RecvTimeoutError::Disconnected) => break,
+            };
 
         // Drain stale frames — keep only the most recent
         while let Ok((newer_data, newer_stride, newer_wait, newer_copy)) = rx_frame.try_recv() {
@@ -560,7 +656,11 @@ fn encode_loop(
             let new_enc_w = ((cfg.video.width as f32 * cfg.video.encode_scale) as u32).max(2) & !1;
             let new_enc_h = ((cfg.video.height as f32 * cfg.video.encode_scale) as u32).max(2) & !1;
 
-            let effective_fps = if cfg.video.fps > 0 { cfg.video.fps } else { cfg.video.refresh_hz };
+            let effective_fps = if cfg.video.fps > 0 {
+                cfg.video.fps
+            } else {
+                cfg.video.refresh_hz
+            };
             let need_reconfig = encoder.is_none()
                 || new_enc_w != cur_enc_w
                 || new_enc_h != cur_enc_h
@@ -571,10 +671,21 @@ fn encode_loop(
             if need_reconfig && cfg.video.bitrate_kbps > 0 {
                 info!(
                     "Configuring encoder: {}x{} @ {}fps (fps={}, refresh_hz={}), {}kbps, encoder={}",
-                    new_enc_w, new_enc_h, effective_fps, cfg.video.fps, cfg.video.refresh_hz,
-                    cfg.video.bitrate_kbps, cfg.video.encoder
+                    new_enc_w,
+                    new_enc_h,
+                    effective_fps,
+                    cfg.video.fps,
+                    cfg.video.refresh_hz,
+                    cfg.video.bitrate_kbps,
+                    cfg.video.encoder
                 );
-                match video::VideoEncoder::new(capture_width, capture_height, new_enc_w, new_enc_h, cfg.video.encoder.clone()) {
+                match video::VideoEncoder::new(
+                    capture_width,
+                    capture_height,
+                    new_enc_w,
+                    new_enc_h,
+                    cfg.video.encoder.clone(),
+                ) {
                     Ok(mut e) => {
                         if let Err(e) = e.start(cfg.video.bitrate_kbps, effective_fps) {
                             error!("Encoder start failed: {}", e);
@@ -652,13 +763,22 @@ fn encode_loop(
             let cfg = config.lock().unwrap();
             if cfg.video.auto_bitrate {
                 let drop_rate = auto_br_drops as f32 / auto_br_frames as f32;
-                let effective_fps = if cfg.video.fps > 0 { cfg.video.fps } else { cfg.video.refresh_hz };
+                let effective_fps = if cfg.video.fps > 0 {
+                    cfg.video.fps
+                } else {
+                    cfg.video.refresh_hz
+                };
                 let frame_budget = 1000.0 / effective_fps.max(1) as f32;
                 let old_br = cfg.video.bitrate_kbps;
                 const MAX_BR: u32 = 50000;
                 let new_br = if drop_rate > 0.02 {
                     let decreased = (old_br as f32 * 0.8) as u32;
-                    info!("auto-bitrate: drop_rate={:.1}%, {}kbps → {}kbps", drop_rate * 100.0, old_br, decreased);
+                    info!(
+                        "auto-bitrate: drop_rate={:.1}%, {}kbps → {}kbps",
+                        drop_rate * 100.0,
+                        old_br,
+                        decreased
+                    );
                     decreased.max(500)
                 } else if drop_rate == 0.0 && h264_ms < frame_budget * 0.5 && old_br < MAX_BR {
                     let increased = (old_br + 500).min(MAX_BR);
@@ -681,8 +801,13 @@ fn encode_loop(
         if last_diag.elapsed() >= Duration::from_secs(5) {
             tracing::debug!(
                 "video: {} enc, {} drop | total={:.1}ms wait={:.1}ms copy={:.1}ms convert={:.1}ms encode={:.1}ms nal={}B",
-                frame_count, dropped_count,
-                frame_total_ms, wait_ms, copy_ms, convert_ms, h264_ms,
+                frame_count,
+                dropped_count,
+                frame_total_ms,
+                wait_ms,
+                copy_ms,
+                convert_ms,
+                h264_ms,
                 nal_data.len(),
             );
             dropped_count = 0;

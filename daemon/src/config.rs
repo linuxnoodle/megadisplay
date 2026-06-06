@@ -64,8 +64,7 @@ fn default_scale() -> f32 {
     1.0
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct IpcConfig {
     pub socket_path: Option<String>,
 }
@@ -94,13 +93,10 @@ impl Default for Config {
                 name: "MEGADISPLAY".into(),
                 scale: 1.0,
             },
-            ipc: IpcConfig {
-                socket_path: None,
-            },
+            ipc: IpcConfig { socket_path: None },
         }
     }
 }
-
 
 impl Config {
     pub fn load() -> Result<Self> {

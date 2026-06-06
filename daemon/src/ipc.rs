@@ -56,9 +56,26 @@ pub enum Request {
     GetStatus,
     GetStats,
     GetConfig,
-    SetConfig { config: Config },
-    SetVideo { width: Option<u32>, height: Option<u32>, fps: Option<u32>, bitrate_kbps: Option<u32>, encode_scale: Option<f32>, refresh_hz: Option<u32>, auto_bitrate: Option<bool>, encoder: Option<String>, enabled: Option<bool> },
-    SetInput { touch: Option<bool>, pen: Option<bool>, keyboard: Option<bool>, pen_cursor: Option<bool> },
+    SetConfig {
+        config: Config,
+    },
+    SetVideo {
+        width: Option<u32>,
+        height: Option<u32>,
+        fps: Option<u32>,
+        bitrate_kbps: Option<u32>,
+        encode_scale: Option<f32>,
+        refresh_hz: Option<u32>,
+        auto_bitrate: Option<bool>,
+        encoder: Option<String>,
+        enabled: Option<bool>,
+    },
+    SetInput {
+        touch: Option<bool>,
+        pen: Option<bool>,
+        keyboard: Option<bool>,
+        pen_cursor: Option<bool>,
+    },
     Shutdown,
 }
 
@@ -198,7 +215,9 @@ fn handle_client(
         let req: Request = match serde_json::from_str(&line) {
             Ok(r) => r,
             Err(e) => {
-                let resp = Response::Error { message: format!("Invalid request: {e}") };
+                let resp = Response::Error {
+                    message: format!("Invalid request: {e}"),
+                };
                 let _ = writeln!(writer, "{}", serde_json::to_string(&resp).unwrap());
                 continue;
             }
@@ -225,25 +244,64 @@ fn handle_client(
                 let _ = c.save();
                 Response::Ok
             }
-            Request::SetVideo { width, height, fps, bitrate_kbps, encode_scale, refresh_hz, auto_bitrate, encoder, enabled: _ } => {
+            Request::SetVideo {
+                width,
+                height,
+                fps,
+                bitrate_kbps,
+                encode_scale,
+                refresh_hz,
+                auto_bitrate,
+                encoder,
+                enabled: _,
+            } => {
                 let mut c = config.lock().unwrap();
-                if let Some(w) = width { c.video.width = w; }
-                if let Some(h) = height { c.video.height = h; }
-                if let Some(f) = fps { c.video.fps = f; }
-                if let Some(b) = bitrate_kbps { c.video.bitrate_kbps = b; }
-                if let Some(s) = encode_scale { c.video.encode_scale = s.clamp(0.25, 1.0); }
-                if let Some(r) = refresh_hz { c.video.refresh_hz = r.clamp(10, 240); }
-                if let Some(a) = auto_bitrate { c.video.auto_bitrate = a; }
-                if let Some(e) = encoder { c.video.encoder = e; }
+                if let Some(w) = width {
+                    c.video.width = w;
+                }
+                if let Some(h) = height {
+                    c.video.height = h;
+                }
+                if let Some(f) = fps {
+                    c.video.fps = f;
+                }
+                if let Some(b) = bitrate_kbps {
+                    c.video.bitrate_kbps = b;
+                }
+                if let Some(s) = encode_scale {
+                    c.video.encode_scale = s.clamp(0.25, 1.0);
+                }
+                if let Some(r) = refresh_hz {
+                    c.video.refresh_hz = r.clamp(10, 240);
+                }
+                if let Some(a) = auto_bitrate {
+                    c.video.auto_bitrate = a;
+                }
+                if let Some(e) = encoder {
+                    c.video.encoder = e;
+                }
                 let _ = c.save();
                 Response::Ok
             }
-            Request::SetInput { touch, pen, keyboard, pen_cursor } => {
+            Request::SetInput {
+                touch,
+                pen,
+                keyboard,
+                pen_cursor,
+            } => {
                 let mut c = config.lock().unwrap();
-                if let Some(t) = touch { c.input.touch = t; }
-                if let Some(p) = pen { c.input.pen = p; }
-                if let Some(k) = keyboard { c.input.keyboard = k; }
-                if let Some(pc) = pen_cursor { c.input.pen_cursor = pc; }
+                if let Some(t) = touch {
+                    c.input.touch = t;
+                }
+                if let Some(p) = pen {
+                    c.input.pen = p;
+                }
+                if let Some(k) = keyboard {
+                    c.input.keyboard = k;
+                }
+                if let Some(pc) = pen_cursor {
+                    c.input.pen_cursor = pc;
+                }
                 let _ = c.save();
                 Response::Ok
             }
@@ -259,4 +317,3 @@ fn handle_client(
         }
     }
 }
-

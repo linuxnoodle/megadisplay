@@ -190,17 +190,23 @@ class VideoDecoder {
         } finally {
             bufferLock.unlock()
         }
-        try {
-            codec?.stop()
-        } catch (e: Exception) {
-            Log.w(TAG, "Error stopping codec", e)
-        }
-        try {
-            codec?.release()
-        } catch (e: Exception) {
-            Log.w(TAG, "Error releasing codec", e)
-        }
+        
+        val c = codec
         codec = null
+        if (c != null) {
+            Thread {
+                try {
+                    c.stop()
+                } catch (e: Exception) {
+                    Log.w(TAG, "Error stopping codec", e)
+                }
+                try {
+                    c.release()
+                } catch (e: Exception) {
+                    Log.w(TAG, "Error releasing codec", e)
+                }
+            }.start()
+        }
     }
 
     companion object {

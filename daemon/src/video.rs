@@ -1,9 +1,9 @@
 use anyhow::{Context, Result};
+use std::io::{Read, Write};
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::mpsc;
 use std::time::Instant;
-use std::io::{Read, Write};
-use tracing::{info, warn, error};
+use tracing::{error, info, warn};
 
 pub struct VideoEncoder {
     #[allow(dead_code)]
@@ -35,8 +35,7 @@ impl VideoEncoder {
         capture_height: u32,
         encode_width: u32,
         encode_height: u32,
-        #[allow(unused_variables)]
-        encoder_type: String,
+        #[allow(unused_variables)] encoder_type: String,
     ) -> Result<Self> {
         info!(
             "Creating H.264 encoder ({}): capture {}x{} → encode {}x{}",
@@ -85,92 +84,104 @@ impl VideoEncoder {
         match self.encoder_type.as_str() {
             "vaapi" => {
                 cmd.args(["-init_hw_device", "vaapi=foo:/dev/dri/renderD128"])
-                   .args(["-filter_hw_device", "foo"])
-                   .args(["-vf", &format!("{}format=nv12,hwupload", scale_filter)])
-                   .args(["-c:v", "h264_vaapi"])
-                   .args(["-g", &gop.to_string()])
-                   .args(["-b:v", &format!("{}k", bitrate_kbps)]);
+                    .args(["-filter_hw_device", "foo"])
+                    .args(["-vf", &format!("{}format=nv12,hwupload", scale_filter)])
+                    .args(["-c:v", "h264_vaapi"])
+                    .args(["-g", &gop.to_string()])
+                    .args(["-b:v", &format!("{}k", bitrate_kbps)]);
             }
             "nvenc" => {
                 cmd.args(["-vf", &format!("{}format=nv12", scale_filter)])
-                   .args(["-c:v", "h264_nvenc"])
-                   .args(["-preset", "p1"])
-                   .args(["-tune", "ull"])
-                   .args(["-zerolatency", "1"])
-                   .args(["-g", &gop.to_string()])
-                   .args(["-b:v", &format!("{}k", bitrate_kbps)]);
+                    .args(["-c:v", "h264_nvenc"])
+                    .args(["-preset", "p1"])
+                    .args(["-tune", "ull"])
+                    .args(["-zerolatency", "1"])
+                    .args(["-g", &gop.to_string()])
+                    .args(["-b:v", &format!("{}k", bitrate_kbps)]);
             }
             "amf" => {
                 cmd.args(["-vf", &format!("{}format=nv12", scale_filter)])
-                   .args(["-c:v", "h264_amf"])
-                   .args(["-usage", "lowlatency"])
-                   .args(["-g", &gop.to_string()])
-                   .args(["-b:v", &format!("{}k", bitrate_kbps)]);
+                    .args(["-c:v", "h264_amf"])
+                    .args(["-usage", "lowlatency"])
+                    .args(["-g", &gop.to_string()])
+                    .args(["-b:v", &format!("{}k", bitrate_kbps)]);
             }
-            _ => { // Software fallback (openh264 or libx264)
+            _ => {
+                // Software fallback (openh264 or libx264)
                 cmd.args(["-vf", &format!("{}format=yuv420p", scale_filter)])
-                   .args(["-c:v", "libx264"])
-                   .args(["-preset", "ultrafast"])
-                   .args(["-tune", "zerolatency"])
-                   .args(["-g", &gop.to_string()])
-                   .args(["-b:v", &format!("{}k", bitrate_kbps)]);
+                    .args(["-c:v", "libx264"])
+                    .args(["-preset", "ultrafast"])
+                    .args(["-tune", "zerolatency"])
+                    .args(["-g", &gop.to_string()])
+                    .args(["-b:v", &format!("{}k", bitrate_kbps)]);
             }
         }
 
         cmd.args(["-f", "h264", "pipe:1"]);
-        cmd.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::inherit());
+        cmd.stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::inherit());
 
         info!("Launching ffmpeg: {:?}", cmd);
 
         let mut child = cmd.spawn().context("Failed to spawn ffmpeg")?;
         let stdin = child.stdin.take().context("Failed to open ffmpeg stdin")?;
-        let stdout = child.stdout.take().context("Failed to open ffmpeg stdout")?;
+        let stdout = child
+            .stdout
+            .take()
+            .context("Failed to open ffmpeg stdout")?;
 
         let (tx_nal, rx_nal) = mpsc::channel();
 
         // Spawn a thread to read NAL units from stdout
-        std::thread::Builder::new().name("ffmpeg-read".into()).spawn(move || {
-            let mut reader = stdout;
-            let mut buf = vec![0u8; 65536];
-            let mut pending = Vec::new();
+        std::thread::Builder::new()
+            .name("ffmpeg-read".into())
+            .spawn(move || {
+                let mut reader = stdout;
+                let mut buf = vec![0u8; 65536];
+                let mut pending = Vec::new();
 
-            loop {
-                match reader.read(&mut buf) {
-                    Ok(0) => {
-                        info!("FFmpeg stdout closed");
-                        break;
-                    }
-                    Ok(n) => {
-                        pending.extend_from_slice(&buf[..n]);
+                loop {
+                    match reader.read(&mut buf) {
+                        Ok(0) => {
+                            info!("FFmpeg stdout closed");
+                            break;
+                        }
+                        Ok(n) => {
+                            pending.extend_from_slice(&buf[..n]);
 
-                        let mut i = 0;
-                        let mut last_start = 0;
-                        while i < pending.len().saturating_sub(3) {
-                            if pending[i] == 0 && pending[i + 1] == 0 && pending[i + 2] == 0 && pending[i + 3] == 1 {
-                                if i > last_start {
-                                    let nal = pending[last_start..i].to_vec();
-                                    if !nal.is_empty() {
-                                        let _ = tx_nal.send(nal);
+                            let mut i = 0;
+                            let mut last_start = 0;
+                            while i < pending.len().saturating_sub(3) {
+                                if pending[i] == 0
+                                    && pending[i + 1] == 0
+                                    && pending[i + 2] == 0
+                                    && pending[i + 3] == 1
+                                {
+                                    if i > last_start {
+                                        let nal = pending[last_start..i].to_vec();
+                                        if !nal.is_empty() {
+                                            let _ = tx_nal.send(nal);
+                                        }
                                     }
+                                    last_start = i;
+                                    i += 4;
+                                } else {
+                                    i += 1;
                                 }
-                                last_start = i;
-                                i += 4;
-                            } else {
-                                i += 1;
+                            }
+
+                            if last_start > 0 {
+                                pending.drain(..last_start);
                             }
                         }
-
-                        if last_start > 0 {
-                            pending.drain(..last_start);
+                        Err(e) => {
+                            error!("FFmpeg read error: {}", e);
+                            break;
                         }
                     }
-                    Err(e) => {
-                        error!("FFmpeg read error: {}", e);
-                        break;
-                    }
                 }
-            }
-        })?;
+            })?;
 
         self.child = Some(child);
         self.stdin = Some(stdin);
@@ -200,14 +211,18 @@ impl VideoEncoder {
         // Write the full BGRA frame to ffmpeg stdin
         let cap_w = self.capture_width as usize;
         let cap_h = self.capture_height as usize;
-        
+
         if stride as usize == cap_w * 4 {
-            stdin.write_all(bgra_data).context("Failed to write to ffmpeg stdin")?;
+            stdin
+                .write_all(bgra_data)
+                .context("Failed to write to ffmpeg stdin")?;
         } else {
             let row_bytes = cap_w * 4;
             for y in 0..cap_h {
                 let off = y * stride as usize;
-                stdin.write_all(&bgra_data[off..off + row_bytes]).context("Failed to write to ffmpeg stdin")?;
+                stdin
+                    .write_all(&bgra_data[off..off + row_bytes])
+                    .context("Failed to write to ffmpeg stdin")?;
             }
         }
         stdin.flush().ok();

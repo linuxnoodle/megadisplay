@@ -4,7 +4,11 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 #[derive(Parser)]
-#[command(name = "megadisplayctl", version, about = "MegaDisplay CLI control tool")]
+#[command(
+    name = "megadisplayctl",
+    version,
+    about = "MegaDisplay CLI control tool"
+)]
 struct Cli {
     #[arg(short, long, global = true, help = "Override daemon socket path")]
     socket: Option<String>,
@@ -63,7 +67,12 @@ enum Command {
     Bench {
         #[arg(short, long, default_value = "10", help = "Duration in seconds")]
         duration: u64,
-        #[arg(short, long, default_value = "100", help = "Sample interval in milliseconds")]
+        #[arg(
+            short,
+            long,
+            default_value = "100",
+            help = "Sample interval in milliseconds"
+        )]
         interval_ms: u64,
     },
 }
@@ -80,11 +89,36 @@ fn main() -> anyhow::Result<()> {
         Command::Stats { watch } => cmd_stats(&socket, watch),
         Command::Config => cmd_config(&socket),
         Command::Set {
-            width, height, fps, bitrate, encode_scale, refresh_hz, auto_bitrate,
-            touch, pen, keyboard, pen_cursor,
-        } => cmd_set(&socket, width, height, fps, bitrate, encode_scale, refresh_hz, auto_bitrate, touch, pen, keyboard, pen_cursor),
+            width,
+            height,
+            fps,
+            bitrate,
+            encode_scale,
+            refresh_hz,
+            auto_bitrate,
+            touch,
+            pen,
+            keyboard,
+            pen_cursor,
+        } => cmd_set(
+            &socket,
+            width,
+            height,
+            fps,
+            bitrate,
+            encode_scale,
+            refresh_hz,
+            auto_bitrate,
+            touch,
+            pen,
+            keyboard,
+            pen_cursor,
+        ),
         Command::Shutdown => cmd_shutdown(&socket),
-        Command::Bench { duration, interval_ms } => cmd_bench(&socket, duration, interval_ms),
+        Command::Bench {
+            duration,
+            interval_ms,
+        } => cmd_bench(&socket, duration, interval_ms),
         Command::Throughput => cmd_throughput(&socket),
     }
 }
@@ -92,13 +126,27 @@ fn main() -> anyhow::Result<()> {
 fn cmd_status(socket: &Path) -> anyhow::Result<()> {
     match send_request(socket, &Request::GetStatus)? {
         Response::Status(s) => {
-            let conn = if s.connected { "Connected" } else { "Disconnected" };
+            let conn = if s.connected {
+                "Connected"
+            } else {
+                "Disconnected"
+            };
             println!("{conn}  peer_version={}", s.peer_version);
-            println!("Video: {}x{} @ {}fps, {}kbps, scale {:.2}, {}Hz, auto_bitrate={}, enabled={}",
-                s.video.width, s.video.height, s.video.fps,
-                s.video.bitrate_kbps, s.video.encode_scale, s.video.refresh_hz, s.video.auto_bitrate, s.video.enabled);
-            println!("Input: touch={} pen={} keyboard={} pen_cursor={}",
-                s.input.touch, s.input.pen, s.input.keyboard, s.input.pen_cursor);
+            println!(
+                "Video: {}x{} @ {}fps, {}kbps, scale {:.2}, {}Hz, auto_bitrate={}, enabled={}",
+                s.video.width,
+                s.video.height,
+                s.video.fps,
+                s.video.bitrate_kbps,
+                s.video.encode_scale,
+                s.video.refresh_hz,
+                s.video.auto_bitrate,
+                s.video.enabled
+            );
+            println!(
+                "Input: touch={} pen={} keyboard={} pen_cursor={}",
+                s.input.touch, s.input.pen, s.input.keyboard, s.input.pen_cursor
+            );
         }
         Response::Error { message } => anyhow::bail!("{message}"),
         _ => anyhow::bail!("Unexpected response"),
@@ -110,12 +158,19 @@ fn cmd_stats(socket: &Path, watch: bool) -> anyhow::Result<()> {
     loop {
         match send_request(socket, &Request::GetStats)? {
             Response::Stats(s) => {
-                let fps = if s.frame_total_ms > 0.0 { 1000.0 / s.frame_total_ms } else { 0.0 };
+                let fps = if s.frame_total_ms > 0.0 {
+                    1000.0 / s.frame_total_ms
+                } else {
+                    0.0
+                };
                 let nal_kb = (s.nal_bytes as f32) / 1024.0;
                 if watch {
                     print!("\x1b[2J\x1b[H");
                 }
-                println!("Frames: {} encoded, {} dropped", s.frames_encoded, s.frames_dropped);
+                println!(
+                    "Frames: {} encoded, {} dropped",
+                    s.frames_encoded, s.frames_dropped
+                );
                 println!("FPS (actual):    {:.1}", fps);
                 println!("Frame total:     {:.1} ms", s.frame_total_ms);
                 println!("  Compositor:    {:.1} ms", s.wait_ms);
@@ -123,7 +178,9 @@ fn cmd_stats(socket: &Path, watch: bool) -> anyhow::Result<()> {
                 println!("  BGRA→YUV:      {:.1} ms", s.convert_ms);
                 println!("  H.264 encode:  {:.1} ms", s.encode_ms);
                 println!("NAL size:        {:.1} KB", nal_kb);
-                if !watch { break; }
+                if !watch {
+                    break;
+                }
                 std::thread::sleep(Duration::from_millis(200));
             }
             Response::Error { message } => anyhow::bail!("{message}"),
@@ -164,29 +221,42 @@ fn cmd_config(socket: &Path) -> anyhow::Result<()> {
 #[allow(clippy::too_many_arguments)]
 fn cmd_set(
     socket: &Path,
-    width: Option<u32>, height: Option<u32>, fps: Option<u32>,
-    bitrate: Option<u32>, encode_scale: Option<f32>,
-    refresh_hz: Option<u32>, auto_bitrate: Option<bool>,
-    touch: Option<bool>, pen: Option<bool>, keyboard: Option<bool>,
+    width: Option<u32>,
+    height: Option<u32>,
+    fps: Option<u32>,
+    bitrate: Option<u32>,
+    encode_scale: Option<f32>,
+    refresh_hz: Option<u32>,
+    auto_bitrate: Option<bool>,
+    touch: Option<bool>,
+    pen: Option<bool>,
+    keyboard: Option<bool>,
     pen_cursor: Option<bool>,
 ) -> anyhow::Result<()> {
-    let has_video = width.is_some() || height.is_some() || fps.is_some()
-        || bitrate.is_some() || encode_scale.is_some()
-        || refresh_hz.is_some() || auto_bitrate.is_some();
+    let has_video = width.is_some()
+        || height.is_some()
+        || fps.is_some()
+        || bitrate.is_some()
+        || encode_scale.is_some()
+        || refresh_hz.is_some()
+        || auto_bitrate.is_some();
     let has_input = touch.is_some() || pen.is_some() || keyboard.is_some() || pen_cursor.is_some();
 
     if has_video {
-        match send_request(socket, &Request::SetVideo {
-            width,
-            height,
-            fps,
-            bitrate_kbps: bitrate,
-            encode_scale,
-            refresh_hz,
-            auto_bitrate,
-            encoder: None,
-            enabled: None,
-        })? {
+        match send_request(
+            socket,
+            &Request::SetVideo {
+                width,
+                height,
+                fps,
+                bitrate_kbps: bitrate,
+                encode_scale,
+                refresh_hz,
+                auto_bitrate,
+                encoder: None,
+                enabled: None,
+            },
+        )? {
             Response::Ok => println!("Video settings applied"),
             Response::Error { message } => anyhow::bail!("{message}"),
             _ => anyhow::bail!("Unexpected response"),
@@ -194,7 +264,15 @@ fn cmd_set(
     }
 
     if has_input {
-        match send_request(socket, &Request::SetInput { touch, pen, keyboard, pen_cursor })? {
+        match send_request(
+            socket,
+            &Request::SetInput {
+                touch,
+                pen,
+                keyboard,
+                pen_cursor,
+            },
+        )? {
             Response::Ok => println!("Input settings applied"),
             Response::Error { message } => anyhow::bail!("{message}"),
             _ => anyhow::bail!("Unexpected response"),
@@ -202,7 +280,9 @@ fn cmd_set(
     }
 
     if !has_video && !has_input {
-        anyhow::bail!("No settings specified. Use --width, --height, --fps, --bitrate, --encode-scale, --refresh-hz, --auto-bitrate, --touch, --pen, --keyboard, or --pen-cursor");
+        anyhow::bail!(
+            "No settings specified. Use --width, --height, --fps, --bitrate, --encode-scale, --refresh-hz, --auto-bitrate, --touch, --pen, --keyboard, or --pen-cursor"
+        );
     }
     Ok(())
 }
@@ -249,11 +329,17 @@ fn cmd_bench(socket: &Path, duration: u64, interval_ms: u64) -> anyhow::Result<(
 
                 let new_encoded = match last_encoded {
                     Some(prev) => s.frames_encoded.saturating_sub(prev),
-                    None => { last_encoded = Some(s.frames_encoded); 0 }
+                    None => {
+                        last_encoded = Some(s.frames_encoded);
+                        0
+                    }
                 };
                 let new_dropped = match last_dropped {
                     Some(prev) => s.frames_dropped.saturating_sub(prev),
-                    None => { last_dropped = Some(s.frames_dropped); 0 }
+                    None => {
+                        last_dropped = Some(s.frames_dropped);
+                        0
+                    }
                 };
 
                 if last_encoded.is_some() {
@@ -333,10 +419,24 @@ fn cmd_bench(socket: &Path, duration: u64, interval_ms: u64) -> anyhow::Result<(
     let (f_min, f_avg, f_p50, f_p95, f_max) = ms(&fps_samples);
     let (n_min, n_avg, n_p50, n_p95, n_max) = nal(&nals);
 
-    println!("MegaDisplay Benchmark — {wall_duration:.1}s, {interval_ms}ms interval, {} samples", samples.len());
+    println!(
+        "MegaDisplay Benchmark — {wall_duration:.1}s, {interval_ms}ms interval, {} samples",
+        samples.len()
+    );
     println!();
-    println!("{:<16} {:>8} {:>8} {:>8} {:>8} {:>8}", "Metric", "Min", "Avg", "P50", "P95", "Max");
-    println!("{} {} {} {} {} {}", "─".repeat(16), "─".repeat(8), "─".repeat(8), "─".repeat(8), "─".repeat(8), "─".repeat(8));
+    println!(
+        "{:<16} {:>8} {:>8} {:>8} {:>8} {:>8}",
+        "Metric", "Min", "Avg", "P50", "P95", "Max"
+    );
+    println!(
+        "{} {} {} {} {} {}",
+        "─".repeat(16),
+        "─".repeat(8),
+        "─".repeat(8),
+        "─".repeat(8),
+        "─".repeat(8),
+        "─".repeat(8)
+    );
 
     print_row("Frame total", t_min, t_avg, t_p50, t_p95, t_max, "ms");
     print_row("Achieved FPS", f_min, f_avg, f_p50, f_p95, f_max, "fps");
@@ -357,10 +457,14 @@ fn cmd_bench(socket: &Path, duration: u64, interval_ms: u64) -> anyhow::Result<(
 
     println!();
     println!("Frames encoded: {total_encoded}  ({avg_fps:.1} avg FPS)");
-    println!("Frames dropped: {total_dropped}  ({:.1}%)", 
+    println!(
+        "Frames dropped: {total_dropped}  ({:.1}%)",
         if total_encoded + total_dropped > 0 {
             total_dropped as f64 / (total_encoded + total_dropped) as f64 * 100.0
-        } else { 0.0 });
+        } else {
+            0.0
+        }
+    );
 
     let work_avg = w_avg + c_avg + v_avg + e_avg;
     let idle_avg = t_avg - work_avg;
@@ -450,21 +554,38 @@ fn cmd_throughput(socket: &Path) -> anyhow::Result<()> {
     println!("Throughput Analysis");
     println!("====================");
     println!();
-    println!("Resolution:     {}x{}", config.video.width, config.video.height);
-    println!("Encode scale:   {:.2} ({}x{})", config.video.encode_scale,
+    println!(
+        "Resolution:     {}x{}",
+        config.video.width, config.video.height
+    );
+    println!(
+        "Encode scale:   {:.2} ({}x{})",
+        config.video.encode_scale,
         ((config.video.width as f32 * config.video.encode_scale) as u32),
-        ((config.video.height as f32 * config.video.encode_scale) as u32));
+        ((config.video.height as f32 * config.video.encode_scale) as u32)
+    );
     println!("Target FPS:     {}", configured_fps);
     println!("Achieved FPS:   {:.1}", achieved_fps);
     println!();
-    println!("NAL size:       {:.1} KB ({:.0} kbits)", stats.nal_bytes as f64 / 1024.0, nal_bits_per_frame / 1000.0);
+    println!(
+        "NAL size:       {:.1} KB ({:.0} kbits)",
+        stats.nal_bytes as f64 / 1024.0,
+        nal_bits_per_frame / 1000.0
+    );
     println!("Actual bitrate: {:.0} kbps", actual_kbps);
     println!("Configured:     {} kbps", configured_bitrate);
     println!("Utilization:    {:.1}%", utilization);
     println!();
-    println!("Total throughput (NAL + overhead): {:.0} kbps ({:.1} MB/s)", total_throughput_kbps, total_throughput_kbps / 8000.0);
+    println!(
+        "Total throughput (NAL + overhead): {:.0} kbps ({:.1} MB/s)",
+        total_throughput_kbps,
+        total_throughput_kbps / 8000.0
+    );
     println!("Frames encoded: {}", stats.frames_encoded);
-    println!("Frames dropped: {} ({:.1}%)", stats.frames_dropped, drop_rate);
+    println!(
+        "Frames dropped: {} ({:.1}%)",
+        stats.frames_dropped, drop_rate
+    );
     println!();
     println!("Pipeline timing:");
     println!("  Compositor:   {:.1} ms", stats.wait_ms);
@@ -477,12 +598,21 @@ fn cmd_throughput(socket: &Path) -> anyhow::Result<()> {
     println!("Recommendation:");
     if drop_rate > 2.0 {
         let suggested = (configured_bitrate as f64 * 0.7) as u32;
-        println!("  Frames dropping ({:.1}%). Reduce bitrate to ~{} kbps or enable auto-bitrate.", drop_rate, suggested);
+        println!(
+            "  Frames dropping ({:.1}%). Reduce bitrate to ~{} kbps or enable auto-bitrate.",
+            drop_rate, suggested
+        );
     } else if utilization < 50.0 && achieved_fps < configured_bitrate as f64 {
-        println!("  Low utilization ({:.0}%). Encoder is quality-limited, not bandwidth-limited.", utilization);
+        println!(
+            "  Low utilization ({:.0}%). Encoder is quality-limited, not bandwidth-limited.",
+            utilization
+        );
         println!("  Consider increasing bitrate for better quality.");
     } else if utilization > 90.0 && drop_rate < 1.0 {
-        println!("  High utilization ({:.0}%) with no drops. Transport handling current bitrate well.", utilization);
+        println!(
+            "  High utilization ({:.0}%) with no drops. Transport handling current bitrate well.",
+            utilization
+        );
         let suggested = (configured_bitrate as f64 * 1.2) as u32;
         println!("  Could try increasing to ~{} kbps.", suggested);
     } else {

@@ -25,7 +25,7 @@ pub fn send_request(socket: &std::path::Path, req: &Request) -> anyhow::Result<R
     let mut reader = BufReader::new(stream);
     let mut line = String::new();
     reader.read_line(&mut line)?;
-    let resp: Response = serde_json::from_str(&line)
-        .map_err(|e| anyhow::anyhow!("Invalid daemon response: {e}"))?;
+    let resp: Response =
+        serde_json::from_str(&line).map_err(|e| anyhow::anyhow!("Invalid daemon response: {e}"))?;
     Ok(resp)
 }

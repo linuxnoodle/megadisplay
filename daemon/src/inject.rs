@@ -7,12 +7,11 @@
 #[cfg(feature = "input-inject")]
 pub mod uinput {
     use anyhow::{Context, Result};
-    use evdev::{
-        AbsoluteAxisCode, AttributeSet, EventType, InputEvent, KeyCode,
-        PropType, SynchronizationCode, UinputAbsSetup,
-        uinput::VirtualDevice,
-    };
     use evdev::AbsInfo;
+    use evdev::{
+        AbsoluteAxisCode, AttributeSet, EventType, InputEvent, KeyCode, PropType,
+        SynchronizationCode, UinputAbsSetup, uinput::VirtualDevice,
+    };
     use tracing::{debug, info, warn};
 
     /// Touch screen injector using Type-B multi-touch protocol.
@@ -32,7 +31,12 @@ pub mod uinput {
 
             let dev = VirtualDevice::builder()?
                 .name("MegaDisplay Touch")
-                .input_id(evdev::InputId::new(evdev::BusType::BUS_USB, 0x1234, 0x5678, 0x0001))
+                .input_id(evdev::InputId::new(
+                    evdev::BusType::BUS_USB,
+                    0x1234,
+                    0x5678,
+                    0x0001,
+                ))
                 .with_properties(&props)?
                 .with_keys(&keys)?
                 .with_absolute_axis(&UinputAbsSetup::new(
@@ -65,10 +69,7 @@ pub mod uinput {
                 ))?
                 .build()?;
 
-            info!(
-                "Created virtual touchscreen: {}x{} (uinput)",
-                width, height
-            );
+            info!("Created virtual touchscreen: {}x{} (uinput)", width, height);
 
             Ok(Self {
                 dev,
@@ -180,7 +181,12 @@ pub mod uinput {
 
             let dev = VirtualDevice::builder()?
                 .name("MegaDisplay Pen")
-                .input_id(evdev::InputId::new(evdev::BusType::BUS_USB, 0x1234, 0x5679, 0x0002))
+                .input_id(evdev::InputId::new(
+                    evdev::BusType::BUS_USB,
+                    0x1234,
+                    0x5679,
+                    0x0002,
+                ))
                 .with_properties(&props)?
                 .with_keys(&keys)?
                 .with_absolute_axis(&UinputAbsSetup::new(
@@ -209,10 +215,7 @@ pub mod uinput {
                 ))?
                 .build()?;
 
-            info!(
-                "Created virtual pen/stylus: {}x{} (uinput)",
-                width, height
-            );
+            info!("Created virtual pen/stylus: {}x{} (uinput)", width, height);
 
             Ok(Self {
                 dev,
@@ -239,7 +242,9 @@ pub mod uinput {
             tilt_y: i32,
             move_cursor: bool,
         ) -> Result<()> {
-            use megadisplay_protocol::{PEN_FLAG_BUTTON, PEN_FLAG_CONTACT, PEN_FLAG_ERASER, PEN_FLAG_HOVER};
+            use megadisplay_protocol::{
+                PEN_FLAG_BUTTON, PEN_FLAG_CONTACT, PEN_FLAG_ERASER, PEN_FLAG_HOVER,
+            };
 
             let x = ((x_raw as f32 / 32767.0) * self.width as f32) as i32;
             let y = ((y_raw as f32 / 32767.0) * self.height as f32) as i32;
@@ -402,7 +407,12 @@ pub mod uinput {
 
             let dev = VirtualDevice::builder()?
                 .name("MegaDisplay Keyboard")
-                .input_id(evdev::InputId::new(evdev::BusType::BUS_USB, 0x1234, 0x567A, 0x0003))
+                .input_id(evdev::InputId::new(
+                    evdev::BusType::BUS_USB,
+                    0x1234,
+                    0x567A,
+                    0x0003,
+                ))
                 .with_keys(&keys)?
                 .build()?;
 
@@ -445,8 +455,8 @@ pub mod uinput {
     /// Based on Android KeyEvent constants and Linux input-event-codes.h.
     fn android_to_linux_keycode(android_key: i32) -> Option<u16> {
         Some(match android_key {
-            7 => KeyCode::KEY_0.0,       // KEYCODE_0
-            8 => KeyCode::KEY_1.0,       // KEYCODE_1
+            7 => KeyCode::KEY_0.0, // KEYCODE_0
+            8 => KeyCode::KEY_1.0, // KEYCODE_1
             9 => KeyCode::KEY_2.0,
             10 => KeyCode::KEY_3.0,
             11 => KeyCode::KEY_4.0,
@@ -455,7 +465,7 @@ pub mod uinput {
             14 => KeyCode::KEY_7.0,
             15 => KeyCode::KEY_8.0,
             16 => KeyCode::KEY_9.0,
-            29 => KeyCode::KEY_A.0,      // KEYCODE_A
+            29 => KeyCode::KEY_A.0, // KEYCODE_A
             30 => KeyCode::KEY_B.0,
             31 => KeyCode::KEY_C.0,
             32 => KeyCode::KEY_D.0,
@@ -483,46 +493,46 @@ pub mod uinput {
             54 => KeyCode::KEY_Z.0,
             55 => KeyCode::KEY_COMMA.0,
             56 => KeyCode::KEY_DOT.0,
-            57 => KeyCode::KEY_SPACE.0,  // KEYCODE_SPACE
-            58 => KeyCode::KEY_ENTER.0,  // KEYCODE_ENTER
+            57 => KeyCode::KEY_SPACE.0,     // KEYCODE_SPACE
+            58 => KeyCode::KEY_ENTER.0,     // KEYCODE_ENTER
             59 => KeyCode::KEY_BACKSPACE.0, // KEYCODE_DEL
-            61 => KeyCode::KEY_TAB.0,    // KEYCODE_TAB
-            62 => KeyCode::KEY_SPACE.0,  // KEYCODE_SPACE (shift)
-            66 => KeyCode::KEY_ENTER.0,  // KEYCODE_ENTER (np)
+            61 => KeyCode::KEY_TAB.0,       // KEYCODE_TAB
+            62 => KeyCode::KEY_SPACE.0,     // KEYCODE_SPACE (shift)
+            66 => KeyCode::KEY_ENTER.0,     // KEYCODE_ENTER (np)
             67 => KeyCode::KEY_BACKSPACE.0,
-            69 => KeyCode::KEY_MINUS.0,  // KEYCODE_MINUS
-            70 => KeyCode::KEY_EQUAL.0,  // KEYCODE_EQUALS
-            71 => KeyCode::KEY_LEFTBRACE.0, // KEYCODE_LEFT_BRACKET
-            72 => KeyCode::KEY_RIGHTBRACE.0, // KEYCODE_RIGHT_BRACKET
-            73 => KeyCode::KEY_BACKSLASH.0, // KEYCODE_BACKSLASH
-            74 => KeyCode::KEY_SEMICOLON.0, // KEYCODE_SEMICOLON
-            75 => KeyCode::KEY_APOSTROPHE.0, // KEYCODE_APOSTROPHE
-            76 => KeyCode::KEY_SLASH.0,  // KEYCODE_SLASH
-            77 => KeyCode::KEY_GRAVE.0,  // KEYCODE_AT
-            81 => KeyCode::KEY_KPPLUS.0, // KEYCODE_PLUS
-            82 => KeyCode::KEY_MENU.0,   // KEYCODE_MENU
-            85 => KeyCode::KEY_PLAYPAUSE.0, // KEYCODE_MEDIA_PLAY_PAUSE
-            86 => KeyCode::KEY_STOPCD.0, // KEYCODE_MEDIA_STOP
-            87 => KeyCode::KEY_NEXTSONG.0, // KEYCODE_MEDIA_NEXT
-            88 => KeyCode::KEY_PREVIOUSSONG.0, // KEYCODE_MEDIA_PREVIOUS
-            89 => KeyCode::KEY_REWIND.0, // KEYCODE_MEDIA_REWIND
-            90 => KeyCode::KEY_FASTFORWARD.0, // KEYCODE_MEDIA_FAST_FORWARD
-            113 => KeyCode::KEY_MUTE.0, // KEYCODE_VOLUME_MUTE
-            114 => KeyCode::KEY_VOLUMEUP.0, // KEYCODE_VOLUME_UP
-            115 => KeyCode::KEY_VOLUMEDOWN.0, // KEYCODE_VOLUME_DOWN
-            116 => KeyCode::KEY_POWER.0, // KEYCODE_POWER
-            122 => KeyCode::KEY_HOME.0,  // KEYCODE_HOME (or KEY_HOMEPAGE)
-            123 => KeyCode::KEY_MENU.0,  // KEYCODE_MENU
-            124 => KeyCode::KEY_BACK.0,  // KEYCODE_BACK
-            143 => KeyCode::KEY_CALC.0,  // KEYCODE_CALCULATOR
+            69 => KeyCode::KEY_MINUS.0,           // KEYCODE_MINUS
+            70 => KeyCode::KEY_EQUAL.0,           // KEYCODE_EQUALS
+            71 => KeyCode::KEY_LEFTBRACE.0,       // KEYCODE_LEFT_BRACKET
+            72 => KeyCode::KEY_RIGHTBRACE.0,      // KEYCODE_RIGHT_BRACKET
+            73 => KeyCode::KEY_BACKSLASH.0,       // KEYCODE_BACKSLASH
+            74 => KeyCode::KEY_SEMICOLON.0,       // KEYCODE_SEMICOLON
+            75 => KeyCode::KEY_APOSTROPHE.0,      // KEYCODE_APOSTROPHE
+            76 => KeyCode::KEY_SLASH.0,           // KEYCODE_SLASH
+            77 => KeyCode::KEY_GRAVE.0,           // KEYCODE_AT
+            81 => KeyCode::KEY_KPPLUS.0,          // KEYCODE_PLUS
+            82 => KeyCode::KEY_MENU.0,            // KEYCODE_MENU
+            85 => KeyCode::KEY_PLAYPAUSE.0,       // KEYCODE_MEDIA_PLAY_PAUSE
+            86 => KeyCode::KEY_STOPCD.0,          // KEYCODE_MEDIA_STOP
+            87 => KeyCode::KEY_NEXTSONG.0,        // KEYCODE_MEDIA_NEXT
+            88 => KeyCode::KEY_PREVIOUSSONG.0,    // KEYCODE_MEDIA_PREVIOUS
+            89 => KeyCode::KEY_REWIND.0,          // KEYCODE_MEDIA_REWIND
+            90 => KeyCode::KEY_FASTFORWARD.0,     // KEYCODE_MEDIA_FAST_FORWARD
+            113 => KeyCode::KEY_MUTE.0,           // KEYCODE_VOLUME_MUTE
+            114 => KeyCode::KEY_VOLUMEUP.0,       // KEYCODE_VOLUME_UP
+            115 => KeyCode::KEY_VOLUMEDOWN.0,     // KEYCODE_VOLUME_DOWN
+            116 => KeyCode::KEY_POWER.0,          // KEYCODE_POWER
+            122 => KeyCode::KEY_HOME.0,           // KEYCODE_HOME (or KEY_HOMEPAGE)
+            123 => KeyCode::KEY_MENU.0,           // KEYCODE_MENU
+            124 => KeyCode::KEY_BACK.0,           // KEYCODE_BACK
+            143 => KeyCode::KEY_CALC.0,           // KEYCODE_CALCULATOR
             164 => KeyCode::KEY_BRIGHTNESSDOWN.0, // KEYCODE_BRIGHTNESS_DOWN
             165 => KeyCode::KEY_BRIGHTNESSUP.0,   // KEYCODE_BRIGHTNESS_UP
-            169 => KeyCode::KEY_FN.0,    // KEYCODE_FUNCTION
-            170 => KeyCode::KEY_BREAK.0, // KEYCODE_BREAK
-            172 => KeyCode::KEY_HOMEPAGE.0, // KEYCODE_EXPLORER
-            185 => KeyCode::KEY_PROG1.0, // KEYCODE_TV
-            186 => KeyCode::KEY_PROG2.0, // KEYCODE_TV_POWER
-            187 => KeyCode::KEY_PROG3.0, // KEYCODE_TV_INPUT
+            169 => KeyCode::KEY_FN.0,             // KEYCODE_FUNCTION
+            170 => KeyCode::KEY_BREAK.0,          // KEYCODE_BREAK
+            172 => KeyCode::KEY_HOMEPAGE.0,       // KEYCODE_EXPLORER
+            185 => KeyCode::KEY_PROG1.0,          // KEYCODE_TV
+            186 => KeyCode::KEY_PROG2.0,          // KEYCODE_TV_POWER
+            187 => KeyCode::KEY_PROG3.0,          // KEYCODE_TV_INPUT
             _ => return None,
         })
     }
@@ -543,6 +553,4 @@ pub mod uinput {
             })
         }
     }
-
-    
 }

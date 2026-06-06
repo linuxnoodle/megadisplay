@@ -25,22 +25,27 @@ pub struct VirtualDisplay {
 }
 
 impl VirtualDisplay {
-    pub fn new(width: u32, height: u32, refresh_rate: u32, output_name: Option<String>) -> Result<Self> {
+    pub fn new(
+        width: u32,
+        height: u32,
+        refresh_rate: u32,
+        output_name: Option<String>,
+    ) -> Result<Self> {
         info!("Creating virtual display: {width}x{height} @ {refresh_rate}Hz");
 
         #[cfg(feature = "wayland")]
         {
-                match WaylandCapture::connect(output_name) {
-                    Ok(capture) => {
-                        info!("Wayland screencopy connected — capturing from compositor output");
-                        return Ok(Self {
-                            width,
-                            height,
-                            capture: Some(capture),
-                            use_test_pattern: false,
-                            last_wait_ms: 0.0,
-                            last_copy_ms: 0.0,
-                        });
+            match WaylandCapture::connect(output_name) {
+                Ok(capture) => {
+                    info!("Wayland screencopy connected — capturing from compositor output");
+                    return Ok(Self {
+                        width,
+                        height,
+                        capture: Some(capture),
+                        use_test_pattern: false,
+                        last_wait_ms: 0.0,
+                        last_copy_ms: 0.0,
+                    });
                 }
                 Err(e) => {
                     warn!("Wayland screencopy unavailable ({}), using test pattern", e);

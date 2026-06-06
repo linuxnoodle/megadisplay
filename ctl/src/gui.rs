@@ -1,7 +1,21 @@
 use eframe::egui;
-use megadisplay_ctl_lib::{default_socket_path, send_request, DaemonStatus, DaemonConfig, Request, Response, StatsSnapshot};
+use megadisplay_ctl_lib::{
+    DaemonConfig, DaemonStatus, Request, Response, StatsSnapshot, default_socket_path, send_request,
+};
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
+
+#[derive(Debug, Clone, serde::Deserialize)]
+struct HyprMonitor {
+    name: String,
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
+    scale: f32,
+    #[serde(rename = "refreshRate")]
+    refresh_rate: f32,
+}
 
 const BW_SETTLE_MS: u64 = 2_000;
 const BW_MEASURE_MS: u64 = 2_500;
@@ -30,7 +44,11 @@ struct BwTestEntry {
 
 impl Clone for BwTestEntry {
     fn clone(&self) -> Self {
-        Self { bitrate: self.bitrate, drop_rate: self.drop_rate, achieved_kbps: self.achieved_kbps }
+        Self {
+            bitrate: self.bitrate,
+            drop_rate: self.drop_rate,
+            achieved_kbps: self.achieved_kbps,
+        }
     }
 }
 
@@ -80,6 +98,12 @@ struct MegaDisplayApp {
     bw_test_min: u32,
     bw_test_max: u32,
     bw_test_step: u32,
+
+    monitors: Vec<HyprMonitor>,
+    last_monitors_fetch: Option<Instant>,
+    target_x: i32,
+    target_y: i32,
+    pos_initialized: bool,
 }
 
 impl Default for MegaDisplayApp {
@@ -105,6 +129,11 @@ impl Default for MegaDisplayApp {
             bw_test_min: 10_000,
             bw_test_max: 50_000,
             bw_test_step: 5_000,
+            monitors: Vec::new(),
+            last_monitors_fetch: None,
+            target_x: 0,
+            target_y: 0,
+            pos_initialized: false,
         }
     }
 }
@@ -118,6 +147,24 @@ impl MegaDisplayApp {
         }
     }
 
+    fn poll_monitors(&mut self) {
+        let now = Instant::now();
+        if self
+            .last_monitors_fetch
+            .map_or(true, |last| now.duration_since(last).as_secs() > 1)
+        {
+            self.last_monitors_fetch = Some(now);
+            if let Ok(output) = std::process::Command::new("hyprctl")
+                .args(&["monitors", "-j"])
+                .output()
+            {
+                if let Ok(monitors) = serde_json::from_slice::<Vec<HyprMonitor>>(&output.stdout) {
+                    self.monitors = monitors;
+                }
+            }
+        }
+    }
+
     fn send_request(&mut self, req: &Request) -> Option<Response> {
         let path = self.socket_path();
         send_request(&path, req).ok()
@@ -125,7 +172,8 @@ impl MegaDisplayApp {
 
     fn poll(&mut self) {
         let now = Instant::now();
-        let should_poll = self.last_poll.is_none() || now.duration_since(self.last_poll.unwrap()) > Duration::from_millis(500);
+        let should_poll = self.last_poll.is_none()
+            || now.duration_since(self.last_poll.unwrap()) > Duration::from_millis(500);
         if !should_poll {
             return;
         }
@@ -207,9 +255,10 @@ impl MegaDisplayApp {
         }
 
         if self.config.is_none()
-            && let Some(Response::Config(c)) = self.send_request(&Request::GetConfig) {
-                self.config = Some(c);
-            }
+            && let Some(Response::Config(c)) = self.send_request(&Request::GetConfig)
+        {
+            self.config = Some(c);
+        }
     }
 
     fn send_and_reload(&mut self, req: Request) {
@@ -250,11 +299,15 @@ impl MegaDisplayApp {
         };
 
         self.send_request(&Request::SetVideo {
-            width: None, height: None, fps: None,
+            width: None,
+            height: None,
+            fps: None,
             bitrate_kbps: Some(start),
-            encode_scale: None, refresh_hz: None,
+            encode_scale: None,
+            refresh_hz: None,
             auto_bitrate: Some(false),
-            encoder: None, enabled: None,
+            encoder: None,
+            enabled: None,
         });
         self.bandwidth_test = Some(test);
     }
@@ -262,11 +315,15 @@ impl MegaDisplayApp {
     fn cancel_bandwidth_test(&mut self) {
         if let Some(ref test) = self.bandwidth_test {
             self.send_request(&Request::SetVideo {
-                width: None, height: None, fps: None,
+                width: None,
+                height: None,
+                fps: None,
                 bitrate_kbps: Some(test.saved_bitrate),
-                encode_scale: None, refresh_hz: None,
+                encode_scale: None,
+                refresh_hz: None,
                 auto_bitrate: Some(test.saved_auto),
-                encoder: None, enabled: None,
+                encoder: None,
+                enabled: None,
             });
         }
         self.bandwidth_test = None;
@@ -282,7 +339,9 @@ impl MegaDisplayApp {
                 let test = self.bandwidth_test.as_ref().unwrap();
                 let elapsed = now.duration_since(test.phase_start).as_millis() as u64;
                 if elapsed >= BW_SETTLE_MS {
-                    let (frames, drops) = self.stats.as_ref()
+                    let (frames, drops) = self
+                        .stats
+                        .as_ref()
                         .map(|s| (s.frames_encoded, s.frames_dropped))
                         .unwrap_or((0, 0));
                     let test = self.bandwidth_test.as_mut().unwrap();
@@ -326,10 +385,14 @@ impl MegaDisplayApp {
                 let total = frame_delta + drop_delta;
                 let drop_rate = if total > 0 {
                     drop_delta as f32 / total as f32 * 100.0
-                } else { 0.0 };
+                } else {
+                    0.0
+                };
                 let achieved_kbps = if stats.frame_total_ms > 0.0 {
                     (stats.nal_bytes as f32 * 8.0) / 1000.0 * (1000.0 / stats.frame_total_ms)
-                } else { 0.0 };
+                } else {
+                    0.0
+                };
 
                 let stable = drop_rate < BW_DROP_THRESHOLD;
                 let at_max = current_bitrate >= test_max;
@@ -355,11 +418,15 @@ impl MegaDisplayApp {
                         test.phase_start = now;
                     }
                     self.send_request(&Request::SetVideo {
-                        width: None, height: None, fps: None,
+                        width: None,
+                        height: None,
+                        fps: None,
                         bitrate_kbps: Some(next_br),
-                        encode_scale: None, refresh_hz: None,
+                        encode_scale: None,
+                        refresh_hz: None,
                         auto_bitrate: Some(false),
-                        encoder: None, enabled: None,
+                        encoder: None,
+                        enabled: None,
                     });
                 } else {
                     {
@@ -369,11 +436,15 @@ impl MegaDisplayApp {
                         test.phase_start = now;
                     }
                     self.send_request(&Request::SetVideo {
-                        width: None, height: None, fps: None,
+                        width: None,
+                        height: None,
+                        fps: None,
                         bitrate_kbps: Some(saved_br),
-                        encode_scale: None, refresh_hz: None,
+                        encode_scale: None,
+                        refresh_hz: None,
                         auto_bitrate: Some(saved_auto),
-                        encoder: None, enabled: None,
+                        encoder: None,
+                        enabled: None,
                     });
                 }
             }
@@ -392,8 +463,13 @@ impl MegaDisplayApp {
     fn render_bandwidth_test_ui(&mut self, ui: &mut egui::Ui, cfg: &mut DaemonConfig) {
         enum BwUi {
             Idle,
-            Running { current_bitrate: u32, phase: BwTestPhase },
-            Done { result: Option<u32> },
+            Running {
+                current_bitrate: u32,
+                phase: BwTestPhase,
+            },
+            Done {
+                result: Option<u32>,
+            },
         }
 
         let ui_state = match &self.bandwidth_test {
@@ -402,9 +478,7 @@ impl MegaDisplayApp {
                 current_bitrate: t.current_bitrate,
                 phase: t.phase.clone(),
             },
-            Some(t) => BwUi::Done {
-                result: t.result,
-            },
+            Some(t) => BwUi::Done { result: t.result },
         };
 
         match ui_state {
@@ -433,11 +507,13 @@ impl MegaDisplayApp {
                                     .range(100..=20_000)
                                     .suffix(" kbps"),
                             );
-                            if ui.add_enabled(connected, egui::Button::new("Test"))
+                            if ui
+                                .add_enabled(connected, egui::Button::new("Test"))
                                 .on_hover_text(
                                     "Sweeps bitrate from min to max in step increments.\n\
                                      Measures frame drops at each level to find the\n\
-                                     maximum stable bitrate for auto-bitrate.")
+                                     maximum stable bitrate for auto-bitrate.",
+                                )
                                 .clicked()
                             {
                                 self.start_bandwidth_test();
@@ -446,7 +522,10 @@ impl MegaDisplayApp {
                         ui.end_row();
                     });
             }
-            BwUi::Running { current_bitrate, phase } => {
+            BwUi::Running {
+                current_bitrate,
+                phase,
+            } => {
                 ui.horizontal(|ui| {
                     ui.label("Bandwidth test:");
                     let phase_label = match phase {
@@ -522,7 +601,9 @@ impl MegaDisplayApp {
         }
 
         // Show test log
-        let log_to_show = self.bandwidth_test.as_ref()
+        let log_to_show = self
+            .bandwidth_test
+            .as_ref()
             .filter(|t| !t.log.is_empty())
             .map(|t| t.log.clone());
         if let Some(log) = log_to_show {
@@ -543,20 +624,231 @@ impl MegaDisplayApp {
                         } else {
                             egui::Color32::from_rgb(150, 200, 150)
                         };
-                        ui.label(
-                            egui::RichText::new(format!("{} k", entry.bitrate)).small(),
-                        );
+                        ui.label(egui::RichText::new(format!("{} k", entry.bitrate)).small());
                         ui.colored_label(
                             color,
                             egui::RichText::new(format!("{:.1}%", entry.drop_rate)).small(),
                         );
                         ui.label(
-                            egui::RichText::new(format!("{:.0} kbps", entry.achieved_kbps))
-                                .small(),
+                            egui::RichText::new(format!("{:.0} kbps", entry.achieved_kbps)).small(),
                         );
                         ui.end_row();
                     }
                 });
+        }
+    }
+
+    fn render_monitor_layout_ui(&mut self, ui: &mut egui::Ui) {
+        if self.monitors.is_empty() {
+            ui.label(egui::RichText::new("No monitors found or not running Hyprland.").weak());
+            return;
+        }
+
+        let target_name = self
+            .config
+            .as_ref()
+            .map(|c| c.output.name.clone())
+            .unwrap_or_else(|| "MEGADISPLAY".to_string());
+
+        let target_monitor = self.monitors.iter().find(|m| m.name == target_name);
+
+        if !self.pos_initialized {
+            if let Some(m) = target_monitor {
+                self.target_x = m.x;
+                self.target_y = m.y;
+                self.pos_initialized = true;
+            }
+        }
+
+        let mut min_x = 0;
+        let mut min_y = 0;
+        let mut max_x = 0;
+        let mut max_y = 0;
+
+        let get_logical_w = |w: i32, scale: f32| -> i32 { (w as f32 / scale).round() as i32 };
+        let get_logical_h = |h: i32, scale: f32| -> i32 { (h as f32 / scale).round() as i32 };
+
+        let our_w = target_monitor.map(|m| m.width).unwrap_or(1920);
+        let our_h = target_monitor.map(|m| m.height).unwrap_or(1200);
+        let our_scale = target_monitor.map(|m| m.scale).unwrap_or(1.0);
+        let our_logical_w = get_logical_w(our_w, our_scale);
+        let our_logical_h = get_logical_h(our_h, our_scale);
+
+        for m in &self.monitors {
+            min_x = min_x.min(m.x);
+            min_y = min_y.min(m.y);
+            max_x = max_x.max(m.x + get_logical_w(m.width, m.scale));
+            max_y = max_y.max(m.y + get_logical_h(m.height, m.scale));
+        }
+
+        if let Some(m) = target_monitor {
+            min_x = min_x.min(self.target_x);
+            min_y = min_y.min(self.target_y);
+            max_x = max_x.max(self.target_x + get_logical_w(m.width, m.scale));
+            max_y = max_y.max(self.target_y + get_logical_h(m.height, m.scale));
+        } else {
+            min_x = min_x.min(self.target_x);
+            min_y = min_y.min(self.target_y);
+            max_x = max_x.max(self.target_x + our_logical_w);
+            max_y = max_y.max(self.target_y + our_logical_h);
+        }
+
+        let total_w = (max_x - min_x).max(1) as f32;
+        let total_h = (max_y - min_y).max(1) as f32;
+
+        let available_w = ui.available_width().min(500.0);
+        let available_h = 400.0;
+        let scale_w = available_w / total_w;
+        let scale_h = available_h / total_h;
+        let scale = scale_w.min(scale_h).min(1.0); // Don't scale up too much
+
+        let canvas_w = (total_w * scale).max(100.0);
+        let canvas_h = (total_h * scale).max(50.0);
+
+        let (response, painter) =
+            ui.allocate_painter(egui::vec2(canvas_w, canvas_h), egui::Sense::drag());
+        let rect = response.rect;
+
+        painter.rect_filled(rect, 4.0, egui::Color32::from_rgb(30, 30, 30));
+
+        let map_to_screen = |x: i32, y: i32| -> egui::Pos2 {
+            egui::pos2(
+                rect.min.x + (x - min_x) as f32 * scale,
+                rect.min.y + (y - min_y) as f32 * scale,
+            )
+        };
+
+        let mut best_dx = i32::MAX;
+        let mut best_dy = i32::MAX;
+        let snap_thresh = 400; // Increased snapping distance
+
+        for m in &self.monitors {
+            if m.name == target_name { continue; }
+            
+            let m_lw = get_logical_w(m.width, m.scale);
+            let m_lh = get_logical_h(m.height, m.scale);
+            
+            for dx in [
+                m.x - self.target_x,
+                (m.x + m_lw) - self.target_x,
+                m.x - (self.target_x + our_logical_w),
+                (m.x + m_lw) - (self.target_x + our_logical_w),
+            ] {
+                if dx.abs() < best_dx.abs() {
+                    best_dx = dx;
+                }
+            }
+            
+            for dy in [
+                m.y - self.target_y,
+                (m.y + m_lh) - self.target_y,
+                m.y - (self.target_y + our_logical_h),
+                (m.y + m_lh) - (self.target_y + our_logical_h),
+            ] {
+                if dy.abs() < best_dy.abs() {
+                    best_dy = dy;
+                }
+            }
+        }
+        
+        let snap_x = if best_dx.abs() < snap_thresh { best_dx } else { 0 };
+        let snap_y = if best_dy.abs() < snap_thresh { best_dy } else { 0 };
+
+        for m in &self.monitors {
+            let is_target = m.name == target_name;
+            let (draw_x, draw_y) = if is_target {
+                (self.target_x + snap_x, self.target_y + snap_y)
+            } else {
+                (m.x, m.y)
+            };
+
+            let p_min = map_to_screen(draw_x, draw_y);
+            let p_max = map_to_screen(draw_x + m.width, draw_y + m.height);
+            let m_rect = egui::Rect::from_min_max(p_min, p_max);
+
+            let fill_color = if is_target {
+                if snap_x != 0 || snap_y != 0 {
+                    egui::Color32::from_rgb(120, 200, 150) // Turn green to indicate snapped!
+                } else {
+                    egui::Color32::from_rgb(100, 150, 250)
+                }
+            } else {
+                egui::Color32::from_rgb(80, 80, 80)
+            };
+
+            painter.rect(
+                m_rect,
+                2.0,
+                fill_color,
+                egui::Stroke::new(1.0, egui::Color32::WHITE),
+                egui::StrokeKind::Middle,
+            );
+
+            painter.text(
+                m_rect.center(),
+                egui::Align2::CENTER_CENTER,
+                &m.name,
+                egui::FontId::proportional(12.0),
+                egui::Color32::WHITE,
+            );
+        }
+
+        if response.dragged() {
+            if let Some(_pos) = response.interact_pointer_pos() {
+                let delta = response.drag_delta();
+                self.target_x += (delta.x / scale) as i32;
+                self.target_y += (delta.y / scale) as i32;
+            }
+        }
+
+        if response.drag_stopped() {
+            if snap_x != 0 {
+                self.target_x += snap_x;
+            } else {
+                self.target_x = (self.target_x as f32 / 100.0).round() as i32 * 100;
+            }
+            if snap_y != 0 {
+                self.target_y += snap_y;
+            } else {
+                self.target_y = (self.target_y as f32 / 100.0).round() as i32 * 100;
+            }
+        }
+
+        ui.add_space(8.0);
+
+        ui.horizontal(|ui| {
+            ui.label("Position X:");
+            ui.add(egui::DragValue::new(&mut self.target_x).speed(10.0));
+            ui.label("Y:");
+            ui.add(egui::DragValue::new(&mut self.target_y).speed(10.0));
+        });
+
+        ui.add_space(4.0);
+
+        let target_mon_cloned = target_monitor.cloned();
+
+        if ui.button("Apply Positioning").clicked() {
+            let width = target_mon_cloned.as_ref().map(|m| m.width).unwrap_or(1920);
+            let height = target_mon_cloned.as_ref().map(|m| m.height).unwrap_or(1200);
+            let refresh = target_mon_cloned
+                .as_ref()
+                .map(|m| m.refresh_rate)
+                .unwrap_or(120.0);
+            let m_scale = target_mon_cloned.as_ref().map(|m| m.scale).unwrap_or(1.0);
+
+            let arg = format!(
+                "{},{}x{}@{},{}x{},{}",
+                target_name, width, height, refresh, self.target_x, self.target_y, m_scale
+            );
+
+            if let Err(e) = std::process::Command::new("hyprctl")
+                .args(&["keyword", "monitor", &arg])
+                .spawn()
+            {
+                self.error = Some(format!("Failed to run hyprctl: {}", e));
+            } else {
+                self.last_monitors_fetch = None;
+            }
         }
     }
 }
@@ -571,6 +863,7 @@ impl eframe::App for MegaDisplayApp {
             self.last_poll = None;
         }
         self.poll();
+        self.poll_monitors();
 
         if test_active {
             self.tick_bandwidth_test();
@@ -589,17 +882,17 @@ impl eframe::App for MegaDisplayApp {
                 ui.label(text);
 
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.label(
-                        egui::RichText::new("megadisplayctl")
-                            .weak(),
-                    );
+                    ui.label(egui::RichText::new("megadisplayctl").weak());
                 });
             });
         });
 
         if let Some(ref err) = self.error {
             egui::TopBottomPanel::top("error").show(ctx, |ui| {
-                ui.colored_label(egui::Color32::from_rgb(255, 100, 100), format!("Error: {err}"));
+                ui.colored_label(
+                    egui::Color32::from_rgb(255, 100, 100),
+                    format!("Error: {err}"),
+                );
             });
         }
 
@@ -619,8 +912,10 @@ impl eframe::App for MegaDisplayApp {
                 return;
             }
 
+            egui::ScrollArea::vertical().show(ui, |ui| {
+
             // Stats section
-            ui.heading("Live Stats");
+            egui::CollapsingHeader::new("Live Stats").default_open(true).show(ui, |ui| {
             ui.add_space(4.0);
 
             if let Some(ref stats) = self.stats {
@@ -869,15 +1164,16 @@ impl eframe::App for MegaDisplayApp {
                     });
                 }
             }
+            }); // end Live Stats
 
             ui.add_space(8.0);
             ui.separator();
 
             // Settings
-            ui.heading("Video");
             if self.config.is_some() {
                 let cfg_clone = self.config.as_ref().unwrap().clone();
                 let mut cfg = cfg_clone;
+                egui::CollapsingHeader::new("Video").default_open(true).show(ui, |ui| {
                 egui::Grid::new("video_grid").num_columns(2).show(ui, |ui| {
                     ui.label("Width:");
                     ui.add(egui::DragValue::new(&mut cfg.video.width).range(320..=3840));
@@ -950,11 +1246,12 @@ impl eframe::App for MegaDisplayApp {
                 // Bandwidth test section
                 ui.add_space(4.0);
                 self.render_bandwidth_test_ui(ui, &mut cfg);
+                }); // end Video
 
                 ui.add_space(8.0);
                 ui.separator();
 
-                ui.heading("Input");
+                egui::CollapsingHeader::new("Input").default_open(true).show(ui, |ui| {
                 egui::Grid::new("input_grid").num_columns(2).show(ui, |ui| {
                     ui.label("Touch:");
                     ui.checkbox(&mut cfg.input.touch, "Enabled");
@@ -980,8 +1277,16 @@ impl eframe::App for MegaDisplayApp {
                         pen_cursor: Some(i.pen_cursor),
                     });
                 }
+                }); // end Input
                 self.config = Some(cfg);
             }
+
+            ui.add_space(8.0);
+            ui.separator();
+
+            egui::CollapsingHeader::new("Monitor Layout").default_open(true).show(ui, |ui| {
+                self.render_monitor_layout_ui(ui);
+            });
 
             ui.add_space(8.0);
             ui.separator();
@@ -991,6 +1296,7 @@ impl eframe::App for MegaDisplayApp {
                 ui.label("Socket:");
                 ui.add(egui::TextEdit::singleline(&mut self.socket_path).desired_width(200.0));
             });
+            }); // end ScrollArea
         });
     }
 }

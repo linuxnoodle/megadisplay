@@ -107,7 +107,9 @@ pub enum Request {
     GetStatus,
     GetStats,
     GetConfig,
-    SetConfig { config: DaemonConfig },
+    SetConfig {
+        config: DaemonConfig,
+    },
     SetVideo {
         width: Option<u32>,
         height: Option<u32>,
