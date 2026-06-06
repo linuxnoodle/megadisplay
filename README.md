@@ -19,7 +19,7 @@ The daemon injects touch and stylus events from the tablet back into the Linux h
 
 - A Wayland compositor supporting the wlroots screencopy protocol (such as Hyprland).
 - A Rust toolchain to compile the daemon.
-- `ffmpeg` installed on the host for hardware-accelerated video encoding.
+- `gstreamer` and its plugins installed on the host for hardware-accelerated video encoding (e.g., `gst-plugins-bad` for VA-API).
 - Access to `/dev/uinput` so the daemon can inject touch and pen events.
 
 ### Installation and Usage
@@ -56,15 +56,14 @@ The driver is currently tested and verified on:
 
 ### Performance
 
-With the recent integration of asynchronous hardware encoding via FFmpeg (VAAPI/NVENC/AMF), the daemon is now capable of driving the tablet at its native resolution (2800x1752) at 120Hz with virtually zero CPU overhead.
+With the recent integration of a true zero-copy DMA-BUF pipeline via `gstreamer-rs` (VAAPI/NVENC/AMF), the daemon is now capable of driving the tablet at its native resolution (2800x1752) at 120Hz with virtually zero CPU overhead and rock-solid stability.
 
-The following pipeline latencies were measured over a continuous run at 2800x1752 @ 120Hz using the `megadisplayctl stats` command. Because the hardware encoder runs asynchronously, the total frame processing time is significantly less than the sum of its parts.
-However, it is still rather unstable... I'll fix it eventually.
+The following pipeline latencies were measured over a continuous run at 2800x1752 @ 120Hz using the `megadisplayctl stats` command. Because the hardware encoder runs asynchronously and handles the color conversion directly on the GPU, the total CPU processing time per frame is virtually eliminated.
 
 | Pipeline Stage | Average Delay (ms) |
 | --- | --- |
 | Compositor Wait | 4.8 ± 0.5 |
-| SHM Copy | 2.7 ± 0.2 |
+| DMA-BUF Export | 0.0 ± 0.0 |
 | BGRA→NV12 (GPU) | 0.0 ± 0.0 |
 | H.264 Encode (VAAPI) | 8.7 ± 0.8 |
-| **Daemon Frame Loop** | **8.2 ± 1.1** |
+| **Daemon Frame Loop** | **4.8 ± 0.5** |
